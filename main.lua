@@ -1,116 +1,160 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local VoidWare = loadstring(game:HttpGet("https://raw.githubusercontent.com/VoidWareOfficial/VoidWare-UI/main/Source.lua"))()
 
-local Window = Rayfield:CreateWindow({
-   Name = "MM2 Helper | Rayfield Edition",
-   LoadingTitle = "Загрузка скрипта...",
-   LoadingSubtitle = "by Gemini",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "MM2_Configs",
-      FileName = "MainConfig"
-   }
+local Window = VoidWare:CreateWindow({
+    Name = "MM2 VOIDWARE | PRIVATE",
+    LoadingTitle = "Загрузка систем...",
+    LoadingSubtitle = "by sasapanov011-coder"
 })
 
--- Переменные для работы функций
-local ESP_Enabled = false
-local Autofarm_Enabled = false
+-- Переменные
+local _G = {
+    FarmDelay = 2,
+    Autofarm = false,
+    ESP = false,
+    SelectedPlayer = nil,
+    AutoShoot = false
+}
 
--- Создание вкладок
-local MainTab = Window:CreateTab("Главная", 4483362458) -- Иконка
-local ESPTab = Window:CreateTab("Визуалы (ESP)", 4483362458)
+local MainTab = Window:CreateTab("Главная")
+local CombatTab = Window:CreateTab("Бой/Таргет")
+local VisualsTab = Window:CreateTab("Визуалы")
 
---- --- --- ЛОГИКА ESP --- --- ---
-
-local function CreateHighlight(player)
-    if player == game.Players.LocalPlayer then return end
-    
-    local char = player.Character or player.CharacterAdded:Wait()
-    local highlight = char:FindFirstChild("ESPHighlight") or Instance.new("Highlight")
-    highlight.Name = "ESPHighlight"
-    highlight.Parent = char
-    highlight.Adornee = char
-    highlight.FillOpacity = 0.5
-    highlight.OutlineTransparency = 0
-    
-    -- Обновление цвета в зависимости от роли
-    task.spawn(function()
-        while char and char.Parent and ESP_Enabled do
-            local role = "Innocent"
-            if player.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife") then
-                role = "Murderer"
-            elseif player.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or player.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver") then
-                role = "Sheriff"
-            end
-            
-            if role == "Murderer" then
-                highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Красный
-            elseif role == "Sheriff" then
-                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Синий
-            else
-                highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый
-            end
-            task.wait(1)
-        end
-        highlight:Destroy()
-    end)
-end
-
-ESPTab:CreateToggle({
-   Name = "Включить ESP (Роли)",
-   CurrentValue = false,
-   Flag = "ESP_Toggle",
-   Callback = function(Value)
-      ESP_Enabled = Value
-      if Value then
-          for _, player in pairs(game.Players:GetPlayers()) do
-              CreateHighlight(player)
-          end
-      end
-   end,
-})
-
---- --- --- ЛОГИКА АВТОФАРМА --- --- ---
+--- --- --- ГЛАВНАЯ (АВТОФАРМ) --- --- ---
 
 MainTab:CreateToggle({
-   Name = "Автофарм снежинок (3 сек)",
-   CurrentValue = false,
-   Flag = "Autofarm_Toggle",
-   Callback = function(Value)
-      Autofarm_Enabled = Value
-      
-      if Value then
-          task.spawn(function()
-              while Autofarm_Enabled do
-                  -- Ищем монетки/снежинки в Workspace
-                  -- В MM2 они обычно лежат в папке "CoinContainer"
-                  local coinContainer = workspace:FindFirstChild("CoinContainer", true)
-                  if coinContainer then
-                      for _, coin in pairs(coinContainer:GetChildren()) do
-                          if not Autofarm_Enabled then break end
-                          
-                          if coin:IsA("BasePart") or coin:FindFirstChild("TouchInterest") then
-                              local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                              if hrp then
-                                  -- Включаем Noclip перед телепортом
-                                  hrp.Parent.Humanoid:ChangeState(11) 
-                                  
-                                  -- Телепортация
-                                  hrp.CFrame = coin.CFrame
-                                  
-                                  task.wait(3) -- Задержка 3 секунды по твоему запросу
-                              end
-                          end
-                      end
-                  else
-                      Rayfield:Notify({Title = "Ошибка", Content = "Снежинки не найдены на карте", Duration = 3})
-                      task.wait(5)
-                  end
-                  task.wait(0.1)
-              end
-          end)
-      end
-   end,
+    Name = "Автофарм Монет/Снежинок",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.Autofarm = Value
+        if Value then
+            task.spawn(function()
+                while _G.Autofarm do
+                    local coins = workspace:FindFirstChild("CoinContainer", true)
+                    if coins then
+                        for _, coin in pairs(coins:GetChildren()) do
+                            if not _G.Autofarm then break end
+                            local hrp = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                            if hrp and coin:IsA("BasePart") then
+                                hrp.Parent.Humanoid:ChangeState(11) -- Noclip
+                                hrp.CFrame = coin.CFrame
+                                task.wait(_G.FarmDelay)
+                            end
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        end
+    end
 })
 
-Rayfield:Notify({Title = "Готово!", Content = "Скрипт успешно запущен", Duration = 5})
+MainTab:CreateSlider({
+    Name = "Задержка телепорта (сек)",
+    Range = {0.5, 5},
+    Increment = 0.5,
+    CurrentValue = 2,
+    Callback = function(Value)
+        _G.FarmDelay = Value
+    end
+})
 
+--- --- --- БОЙ (TARGET / KILL ALL) --- --- ---
+
+local PlayerList = {}
+for _, v in pairs(game.Players:GetPlayers()) do table.insert(PlayerList, v.Name) end
+
+CombatTab:CreateDropdown({
+    Name = "Выбрать цель (Target)",
+    Options = PlayerList,
+    CurrentOption = "Никто",
+    Callback = function(Option)
+        _G.SelectedPlayer = game.Players:FindFirstChild(Option)
+    end
+})
+
+CombatTab:CreateButton({
+    Name = "Убить цель (Нужен нож)",
+    Callback = function()
+        if _G.SelectedPlayer and game.Players.LocalPlayer.Character:FindFirstChild("Knife") then
+            local targetHRP = _G.SelectedPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myHRP = game.Players.LocalPlayer.Character.HumanoidRootPart
+            myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 1)
+            -- Код для удара ножом
+            game:GetService("ReplicatedStorage").MainEvent:FireServer("Attack")
+        end
+    end
+})
+
+CombatTab:CreateButton({
+    Name = "Kill All (Убить всех)",
+    Callback = function()
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= game.Players.LocalPlayer and p.Character then
+                local myHRP = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP then
+                    myHRP.CFrame = p.Character.HumanoidRootPart.CFrame
+                    game:GetService("ReplicatedStorage").MainEvent:FireServer("Attack")
+                    task.wait(0.2)
+                end
+            end
+        end
+    end
+})
+
+CombatTab:CreateButton({
+    Name = "Выстрелить в Убийцу (Для шерифа)",
+    Callback = function()
+        local murderer = nil
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Backpack:FindFirstChild("Knife") or (p.Character and p.Character:FindFirstChild("Knife")) then
+                murderer = p
+                break
+            end
+        end
+        
+        if murderer and game.Players.LocalPlayer.Character:FindFirstChild("Gun") then
+            local root = murderer.Character.HumanoidRootPart
+            local args = {
+                [1] = 1,
+                [2] = root.Position,
+                [3] = "Main"
+            }
+            game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", unpack(args))
+        end
+    end
+})
+
+--- --- --- ВИЗУАЛЫ (ESP) --- --- ---
+
+local function UpdateESP()
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= game.Players.LocalPlayer and p.Character then
+            local char = p.Character
+            local highlight = char:FindFirstChild("VoidESP") or Instance.new("Highlight", char)
+            highlight.Name = "VoidESP"
+            highlight.Enabled = _G.ESP
+            
+            if p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife") then
+                highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Убийца
+            elseif p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver") then
+                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Шериф
+            else
+                highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Невиновный
+            end
+        end
+    end
+end
+
+VisualsTab:CreateToggle({
+    Name = "Включить ESP Ролей",
+    CurrentValue = false,
+    Callback = function(Value)
+        _G.ESP = Value
+        task.spawn(function()
+            while _G.ESP do
+                UpdateESP()
+                task.wait(1)
+            end
+        end)
+    end
+})
