@@ -1,9 +1,9 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "InbiScript | MM2 V24 GOD",
-   LoadingTitle = "InbiScript: ГИПЕР-КРУТИЛКА",
-   LoadingSubtitle = "Spin Mode & Target Lock Ready",
+   Name = "InbiScript | MM2 V25 FINAL",
+   LoadingTitle = "InbiScript: СИСТЕМА ЗАХВАТА ЦЕЛИ",
+   LoadingSubtitle = "Camera Lock & Mega Spin",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false 
 })
@@ -13,28 +13,33 @@ local RS = game:GetService("RunService")
 local TS = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 
--- --- --- СИСТЕМА ФЛИНГА (БЕЗ ПРЫЖКОВ, ТОЛЬКО СПИН) --- --- ---
-local function PerfectSpinFling(Target)
+-- ПЕРЕМЕННЫЕ УПРАВЛЕНИЯ
+_G.TargetLock = false
+_G.InbiFarmSpeed = 60
+
+-- --- --- СИСТЕМА FLING (КРУТИЛКА ПОД НОГАМИ) --- --- ---
+local function PowerSpin(Target)
     if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = LP.Character.HumanoidRootPart
         local oldPos = hrp.CFrame
         
-        -- Выключаем гравитацию и прыжки для себя на время флинга
+        -- Сила для удержания на месте (чтобы не прыгал)
         local bv = Instance.new("BodyVelocity", hrp)
         bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bv.Velocity = Vector3.new(0, 0, 0) -- МЫ НЕ ПРЫГАЕМ
+        bv.Velocity = Vector3.new(0, 0, 0)
         
+        -- Бешеное вращение
         local bav = Instance.new("BodyAngularVelocity", hrp)
         bav.P = 1e6
         bav.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-        bav.AngularVelocity = Vector3.new(0, 3000000, 0) -- БЕШЕНОЕ ВРАЩЕНИЕ
+        bav.AngularVelocity = Vector3.new(0, 3000000, 0)
 
         local s = tick()
         while tick() - s < 3.5 do
-            RS.Heartbeat:Wait()
+            RS.RenderStepped:Wait()
             hrp.CanCollide = false
-            -- ЖЕСТКАЯ ФИКСАЦИЯ ПОД НОГАМИ (ниже на 3.6 блока)
-            hrp.CFrame = Target.Character.HumanoidRootPart.CFrame * CFrame.new(0, -3.6, 0) * CFrame.Angles(0, 0, 0)
+            -- ФИКСАЦИЯ ПОД НОГАМИ
+            hrp.CFrame = Target.Character.HumanoidRootPart.CFrame * CFrame.new(0, -3.6, 0)
         end
         
         bav:Destroy(); bv:Destroy()
@@ -52,25 +57,20 @@ local TabVisuals = Window:CreateTab("Визуалы (SCP)", 4483362458)
 local TabTP = Window:CreateTab("Телепорты", 4483362458)
 local TabMisc = Window:CreateTab("Разное", 4483362458)
 
---- --- --- БОЙ & SHIFT LOCK --- --- ---
-_G.InbiAttackM = false
+--- --- --- TARGET LOCK (СЛЕДЖЕНИЕ КАМЕРЫ) --- --- ---
 TabCombat:CreateToggle({
-    Name = "Нападение на Murderer (Shift Lock)",
+    Name = "Target Lock (Следить за Murderer)",
     CurrentValue = false,
-    Callback = function(v) _G.InbiAttackM = v end
+    Callback = function(v) _G.TargetLock = v end
 })
 
--- Цикл для Shift Lock и Прилипания
-task.spawn(function()
-    while task.wait() do
-        if _G.InbiAttackM then
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
-                    -- Прилипаем
-                    LP.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1.3)
-                    -- Shift Lock (Камера смотрит на мардера)
-                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, p.Character.HumanoidRootPart.Position)
-                end
+-- Цикл слежения камеры (БЕЗ ПОЛЕТА)
+RS.RenderStepped:Connect(function()
+    if _G.TargetLock then
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
+                -- Камера смотрит на голову или туловище убийцы
+                Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, p.Character.HumanoidRootPart.Position)
             end
         end
     end
@@ -82,7 +82,7 @@ task.spawn(function()
     while task.wait(0.1) do
         if _G.InbiAura then
             local k = LP.Character:FindFirstChild("Knife") or LP.Backpack:FindFirstChild("Knife")
-            if k and _G.InbiAura then
+            if k then
                 for _, p in pairs(game.Players:GetPlayers()) do
                     if p ~= LP and p.Character and (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude < 15 then
                         LP.Character.Humanoid:EquipTool(k); k:Activate()
@@ -93,34 +93,33 @@ task.spawn(function()
     end
 end)
 
---- --- --- FLING (ГИПЕР-КРУТИЛКА) --- --- ---
+--- --- --- FLING (КРУТИЛКА) --- --- ---
 TabFling:CreateButton({
     Name = "Fling Murderer (Spin Under Feet)",
     Callback = function()
         for _, p in pairs(game.Players:GetPlayers()) do
             if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
-                PerfectSpinFling(p)
+                PowerSpin(p)
             end
         end
     end
 })
 
-local TargetPlayer = ""
+local SelectedTarget = ""
 local DropF = TabFling:CreateDropdown({
     Name = "Выбрать цель",
     Options = {"Загрузка..."},
-    Callback = function(v) TargetPlayer = v[1] end
+    Callback = function(v) SelectedTarget = v[1] end
 })
 
 TabFling:CreateButton({
     Name = "Крутиться под ногами выбранного",
     Callback = function()
-        PerfectSpinFling(game.Players:FindFirstChild(TargetPlayer))
+        PowerSpin(game.Players:FindFirstChild(SelectedTarget))
     end
 })
 
 --- --- --- АВТОФАРМ (FLY + ПОЛЗУНОК) --- --- ---
-_G.InbiFarmSpeed = 60
 TabFarm:CreateSlider({Name = "Скорость полета", Range = {10, 400}, Increment = 5, CurrentValue = 60, Callback = function(v) _G.InbiFarmSpeed = v end})
 TabFarm:CreateToggle({Name = "Fly Farm (NoClip)", CurrentValue = false, Callback = function(v) 
     _G.InbiFarm = v
@@ -143,7 +142,7 @@ TabFarm:CreateToggle({Name = "Fly Farm (NoClip)", CurrentValue = false, Callback
 end})
 
 --- --- --- ВИЗУАЛЫ (SCP ESP) --- --- ---
-TabVisuals:CreateToggle({Name = "SCP ESP (Highlight)", CurrentValue = false, Callback = function(v) _G.SCPESP = v end})
+TabVisuals:CreateToggle({Name = "SCP ESP", CurrentValue = false, Callback = function(v) _G.SCPESP = v end})
 task.spawn(function()
     while task.wait(1) do
         if _G.SCPESP then
@@ -154,13 +153,14 @@ task.spawn(function()
                     local isM = p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")
                     local isS = p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun")
                     h.FillColor = isM and Color3.new(1,0,0) or isS and Color3.new(0,0,1) or Color3.new(0,1,0)
+                    h.OutlineTransparency = 0
                 end
             end
         end
     end
 end)
 
---- --- --- РАЗНОЕ & ANTI-FLING --- --- ---
+--- --- --- РАЗНОЕ --- --- ---
 TabMisc:CreateToggle({Name = "Anti-Fling", CurrentValue = true, Callback = function(v) _G.AF = v end})
 RS.Heartbeat:Connect(function() 
     if _G.AF and LP.Character then 
@@ -169,12 +169,8 @@ RS.Heartbeat:Connect(function()
 end)
 
 TabTP:CreateButton({Name = "Лобби", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end})
-TabTP:CreateButton({Name = "Карта", Callback = function() 
-    local m = workspace:FindFirstChild("Map") or workspace:FindFirstChild("ActiveMap")
-    if m then LP.Character.HumanoidRootPart.CFrame = m:FindFirstChildOfClass("Part", true).CFrame end
-end})
 
--- Обновление списка
+-- Обновление списка игроков
 task.spawn(function()
     while task.wait(5) do
         local pl = {}
@@ -183,4 +179,4 @@ task.spawn(function()
     end
 end)
 
-Rayfield:Notify({Title = "InbiScript V24", Content = "Spin Fling и Shift Lock активированы!", Duration = 5})
+Rayfield:Notify({Title = "InbiScript V25", Content = "Target Lock и Spin Fling готовы!", Duration = 5})
