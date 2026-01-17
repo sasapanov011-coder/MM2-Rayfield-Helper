@@ -1,122 +1,120 @@
-local VoidWare = loadstring(game:HttpGet("https://raw.githubusercontent.com/VoidWareOfficial/VoidWare-UI/main/Source.lua"))()
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-local Window = VoidWare:CreateWindow({
-    Name = "MM2 VOIDWARE | PRIVATE",
-    LoadingTitle = "Загрузка систем...",
-    LoadingSubtitle = "by sasapanov011-coder"
+local Window = Fluent:CreateWindow({
+    Title = "MM2 ALPHA CONTROLS",
+    SubTitle = "by sasapanov011",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark"
 })
 
--- Переменные
-local _G = {
-    FarmDelay = 2,
-    Autofarm = false,
-    ESP = false,
-    SelectedPlayer = nil,
-    AutoShoot = false
+local Tabs = {
+    Main = Window:AddTab({ Title = "Автофарм", Icon = "home" }),
+    Combat = Window:AddTab({ Title = "Бой", Icon = "swords" }),
+    Visuals = Window:AddTab({ Title = "ESP (Визуалы)", Icon = "eye" })
 }
 
-local MainTab = Window:CreateTab("Главная")
-local CombatTab = Window:CreateTab("Бой/Таргет")
-local VisualsTab = Window:CreateTab("Визуалы")
+local Options = Fluent.Options
 
---- --- --- ГЛАВНАЯ (АВТОФАРМ) --- --- ---
+-- Переменные
+local AutofarmDelay = 2
+local ESPEnabled = false
 
-MainTab:CreateToggle({
-    Name = "Автофарм Монет/Снежинок",
-    CurrentValue = false,
-    Callback = function(Value)
-        _G.Autofarm = Value
-        if Value then
-            task.spawn(function()
-                while _G.Autofarm do
-                    local coins = workspace:FindFirstChild("CoinContainer", true)
-                    if coins then
-                        for _, coin in pairs(coins:GetChildren()) do
-                            if not _G.Autofarm then break end
-                            local hrp = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                            if hrp and coin:IsA("BasePart") then
-                                hrp.Parent.Humanoid:ChangeState(11) -- Noclip
-                                hrp.CFrame = coin.CFrame
-                                task.wait(_G.FarmDelay)
-                            end
-                        end
-                    end
-                    task.wait(0.5)
-                end
-            end)
-        end
-    end
-})
+--- --- --- ФУНКЦИИ --- --- ---
 
-MainTab:CreateSlider({
-    Name = "Задержка телепорта (сек)",
-    Range = {0.5, 5},
-    Increment = 0.5,
-    CurrentValue = 2,
-    Callback = function(Value)
-        _G.FarmDelay = Value
-    end
-})
-
---- --- --- БОЙ (TARGET / KILL ALL) --- --- ---
-
-local PlayerList = {}
-for _, v in pairs(game.Players:GetPlayers()) do table.insert(PlayerList, v.Name) end
-
-CombatTab:CreateDropdown({
-    Name = "Выбрать цель (Target)",
-    Options = PlayerList,
-    CurrentOption = "Никто",
-    Callback = function(Option)
-        _G.SelectedPlayer = game.Players:FindFirstChild(Option)
-    end
-})
-
-CombatTab:CreateButton({
-    Name = "Убить цель (Нужен нож)",
-    Callback = function()
-        if _G.SelectedPlayer and game.Players.LocalPlayer.Character:FindFirstChild("Knife") then
-            local targetHRP = _G.SelectedPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local myHRP = game.Players.LocalPlayer.Character.HumanoidRootPart
-            myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 1)
-            -- Код для удара ножом
-            game:GetService("ReplicatedStorage").MainEvent:FireServer("Attack")
-        end
-    end
-})
-
-CombatTab:CreateButton({
-    Name = "Kill All (Убить всех)",
-    Callback = function()
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p ~= game.Players.LocalPlayer and p.Character then
-                local myHRP = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myHRP then
-                    myHRP.CFrame = p.Character.HumanoidRootPart.CFrame
-                    game:GetService("ReplicatedStorage").MainEvent:FireServer("Attack")
-                    task.wait(0.2)
-                end
+-- Поиск монет (Снежинок)
+local function GetCoin()
+    local container = workspace:FindFirstChild("CoinContainer", true) or workspace:FindFirstChild("Coins", true)
+    if container then
+        for _, v in pairs(container:GetChildren()) do
+            if v:IsA("BasePart") or v:FindFirstChild("TouchInterest") then
+                return v
             end
         end
     end
+    return nil
+end
+
+-- Логика Автофарма
+task.spawn(function()
+    while true do
+        if Options.AutofarmToggle and Options.AutofarmToggle.Value then
+            local coin = GetCoin()
+            local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            
+            if coin and hrp then
+                hrp.Parent.Humanoid:ChangeState(11) -- Noclip
+                hrp.CFrame = coin.CFrame
+                task.wait(AutofarmDelay)
+            end
+        end
+        task.wait(0.1)
+    end
+end)
+
+--- --- --- ВКЛАДКА: ГЛАВНАЯ (АВТОФАРМ) --- --- ---
+
+Tabs.Main:AddToggle("AutofarmToggle", {Title = "Включить Автофарм", Default = false})
+
+Tabs.Main:AddSlider("DelaySlider", {
+    Title = "Задержка телепорта",
+    Description = "Через сколько секунд прыгать к новой монете",
+    Default = 2,
+    Min = 0.5,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        AutofarmDelay = Value
+    end
 })
 
-CombatTab:CreateButton({
-    Name = "Выстрелить в Убийцу (Для шерифа)",
+--- --- --- ВКЛАДКА: БОЙ --- --- ---
+
+local PlayerDropdown = Tabs.Combat:AddDropdown("PlayerSelect", {
+    Title = "Выбрать цель",
+    Values = {},
+    Multi = false,
+    Default = 1,
+})
+
+-- Обновление списка игроков
+task.spawn(function()
+    while true do
+        local pNames = {}
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= game.Players.LocalPlayer then table.insert(pNames, p.Name) end
+        end
+        PlayerDropdown:SetValues(pNames)
+        task.wait(5)
+    end
+end)
+
+Tabs.Combat:AddButton({
+    Title = "ТП к цели (Убить)",
+    Callback = function()
+        local target = game.Players:FindFirstChild(Options.PlayerSelect.Value)
+        if target and target.Character then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+        end
+    end
+})
+
+Tabs.Combat:AddButton({
+    Title = "Выстрел в Убийцу (Шериф)",
     Callback = function()
         local murderer = nil
         for _, p in pairs(game.Players:GetPlayers()) do
-            if p.Backpack:FindFirstChild("Knife") or (p.Character and p.Character:FindFirstChild("Knife")) then
+            if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
                 murderer = p
                 break
             end
         end
         
-        if murderer and game.Players.LocalPlayer.Character:FindFirstChild("Gun") then
-            local root = murderer.Character.HumanoidRootPart
+        if murderer then
             local args = {
                 [1] = 1,
-                [2] = root.Position,
+                [2] = murderer.Character.HumanoidRootPart.Position,
                 [3] = "Main"
             }
             game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", unpack(args))
@@ -124,37 +122,52 @@ CombatTab:CreateButton({
     end
 })
 
---- --- --- ВИЗУАЛЫ (ESP) --- --- ---
+--- --- --- ВКЛАДКА: ВИЗУАЛЫ (ESP) --- --- ---
 
-local function UpdateESP()
+local function CreateESP()
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= game.Players.LocalPlayer and p.Character then
             local char = p.Character
-            local highlight = char:FindFirstChild("VoidESP") or Instance.new("Highlight", char)
-            highlight.Name = "VoidESP"
-            highlight.Enabled = _G.ESP
+            local highlight = char:FindFirstChild("AlphaESP") or Instance.new("Highlight", char)
+            highlight.Name = "AlphaESP"
+            highlight.Enabled = ESPEnabled
+            highlight.FillOpacity = 0.5
             
-            if p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife") then
-                highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Убийца
-            elseif p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver") then
-                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Шериф
+            -- Определение роли
+            local isMurderer = p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
+            local isSheriff = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver")
+            
+            if isMurderer then
+                highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Красный
+            elseif isSheriff then
+                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Синий
             else
-                highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Невиновный
+                highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый
             end
         end
     end
 end
 
-VisualsTab:CreateToggle({
-    Name = "Включить ESP Ролей",
-    CurrentValue = false,
+Tabs.Visuals:AddToggle("ESPToggle", {
+    Title = "Включить ESP Ролей",
+    Default = false,
     Callback = function(Value)
-        _G.ESP = Value
-        task.spawn(function()
-            while _G.ESP do
-                UpdateESP()
-                task.wait(1)
+        ESPEnabled = Value
+        if not Value then
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p.Character and p.Character:FindFirstChild("AlphaESP") then
+                    p.Character.AlphaESP:Destroy()
+                end
             end
-        end)
+        end
     end
 })
+
+task.spawn(function()
+    while true do
+        if ESPEnabled then CreateESP() end
+        task.wait(1)
+    end
+end)
+
+Fluent:Notify({ Title = "Система запущена", Content = "Скрипт AlphaControls готов к работе!", Duration = 5 })
