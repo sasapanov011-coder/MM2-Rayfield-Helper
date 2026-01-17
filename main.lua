@@ -1,11 +1,11 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MM2 | AlphaControls V5",
-   LoadingTitle = "Загрузка системы Rayfield...",
+   Name = "MM2 | AlphaControls V6",
+   LoadingTitle = "Загрузка системы анимаций...",
    LoadingSubtitle = "by sasapanov011",
    ConfigurationSaving = { Enabled = false },
-   KeySystem = false -- Ключ полностью убран
+   KeySystem = false 
 })
 
 local LP = game.Players.LocalPlayer
@@ -15,13 +15,14 @@ local RS = game:GetService("RunService")
 -- ВКЛАДКИ
 local TabFarm = Window:CreateTab("Автофарм (Fly)", 4483362458)
 local TabCombat = Window:CreateTab("Бой & Fling", 4483362458)
+local TabEmotes = Window:CreateTab("Эмоции", 4483362458) -- НОВАЯ ВКЛАДКА
 local TabVisuals = Window:CreateTab("SCP ESP", 4483362458)
 local TabTP = Window:CreateTab("Телепорты", 4483362458)
 
---- --- --- АВТОФАРМ С ПОЛЗУНКОМ СКОРОСТИ --- --- ---
+--- --- --- ИСПРАВЛЕННЫЙ АВТОФАРМ --- --- ---
 
 _G.Farming = false
-_G.FarmSpeed = 0.5 -- Значение по умолчанию
+_G.FarmSpeedValue = 15 -- Скорость (теперь чем выше, тем быстрее)
 
 TabFarm:CreateToggle({
    Name = "Включить Fly Autofarm",
@@ -36,16 +37,18 @@ TabFarm:CreateToggle({
                   if container then
                       local coins = container:GetChildren()
                       for i = 1, #coins do
-                          local coin = coins[i]
                           if not _G.Farming then break end
-                          
+                          local coin = coins[i]
                           if coin:IsA("BasePart") and coin:FindFirstChild("TouchInterest") then
                               local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                               if hrp then
-                                  LP.Character.Humanoid:ChangeState(11) -- Noclip
+                                  LP.Character.Humanoid:ChangeState(11)
                                   
-                                  -- ПОЛЕТ С ИСПОЛЬЗОВАНИЕМ ПОЛЗУНКА
-                                  local tween = TS:Create(hrp, TweenInfo.new(_G.FarmSpeed, Enum.EasingStyle.Linear), {CFrame = coin.CFrame})
+                                  -- РАСЧЕТ СКОРОСТИ (теперь логичный)
+                                  local distance = (hrp.Position - coin.Position).Magnitude
+                                  local duration = distance / _G.FarmSpeedValue
+                                  
+                                  local tween = TS:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = coin.CFrame})
                                   tween:Play()
                                   tween.Completed:Wait()
                                   task.wait(0.05)
@@ -61,23 +64,33 @@ TabFarm:CreateToggle({
 })
 
 TabFarm:CreateSlider({
-   Name = "Скорость сбора (меньше = быстрее)",
-   Range = {0.1, 2},
-   Increment = 0.1,
-   Suffix = " сек",
-   CurrentValue = 0.5,
+   Name = "Скорость полета",
+   Range = {5, 100},
+   Increment = 5,
+   Suffix = " Скор.",
+   CurrentValue = 15,
    Flag = "FarmSpeedSlider",
    Callback = function(Value)
-      _G.FarmSpeed = Value
+      _G.FarmSpeedValue = Value
    end,
 })
 
---- --- --- БОЙ (SHOT MURDER & KILL ALL) --- --- ---
+--- --- --- ВКЛАДКА: ЭМОЦИИ --- --- ---
 
-TabCombat:CreateSection("Убийство")
+local function PlayEmote(emoteName)
+    game:GetService("ReplicatedStorage").MainEvent:FireServer("PlayEmote", emoteName)
+end
+
+TabEmotes:CreateButton({Name = "Дзен (Zen)", Callback = function() PlayEmote("zen") end})
+TabEmotes:CreateButton({Name = "Сидеть (Sit)", Callback = function() PlayEmote("sit") end})
+TabEmotes:CreateButton({Name = "Флос (Floss)", Callback = function() PlayEmote("floss") end})
+TabEmotes:CreateButton({Name = "Зомби (Zombie)", Callback = function() PlayEmote("zombie") end})
+TabEmotes:CreateSection("Инфо: Эмоции работают, если они у вас куплены/экипированы")
+
+--- --- --- ОСТАЛЬНОЙ ФУНКЦИОНАЛ (БОЙ / ESP / ТП) --- --- ---
 
 TabCombat:CreateButton({
-   Name = "🔪 Kill All (Убить всех)",
+   Name = "🔪 Kill All",
    Callback = function()
        local knife = LP.Backpack:FindFirstChild("Knife") or LP.Character:FindFirstChild("Knife")
        if knife then
@@ -89,14 +102,12 @@ TabCombat:CreateButton({
                    knife:Activate()
                end
            end
-       else
-           Rayfield:Notify({Title = "Ошибка", Content = "Нож не найден!", Duration = 3})
        end
    end,
 })
 
 TabCombat:CreateButton({
-   Name = "🔫 Shot Murderer (Авто-выстрел)",
+   Name = "🔫 Shot Murderer",
    Callback = function()
        local murderer = nil
        for _, p in pairs(game.Players:GetPlayers()) do
@@ -107,64 +118,20 @@ TabCombat:CreateButton({
        local gun = LP.Backpack:FindFirstChild("Gun") or LP.Character:FindFirstChild("Gun")
        if murderer and gun then
            LP.Character.Humanoid:EquipTool(gun)
-           local args = {[1] = 1, [2] = murderer.Character.HumanoidRootPart.Position, [3] = "Main"}
-           game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", unpack(args))
-       else
-           Rayfield:Notify({Title = "Ошибка", Content = "Вы не шериф или М нет", Duration = 3})
+           game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", 1, murderer.Character.HumanoidRootPart.Position, "Main")
        end
    end,
 })
 
-TabCombat:CreateSection("Fling")
-
-local TargetName = ""
-local Dropdown = TabCombat:CreateDropdown({
-   Name = "Выбрать цель",
-   Options = {"Обновление..."},
-   CurrentOption = "",
-   Callback = function(Option) TargetName = Option[1] end,
-})
-
-task.spawn(function()
-    while task.wait(5) do
-        local plrs = {}
-        for _, p in pairs(game.Players:GetPlayers()) do table.insert(plrs, p.Name) end
-        Dropdown:Refresh(plrs)
-    end
-end)
-
-TabCombat:CreateButton({
-   Name = "🌪 Fling Target",
-   Callback = function()
-       local target = game.Players:FindFirstChild(TargetName)
-       if target and target.Character then
-           local hrp = LP.Character.HumanoidRootPart
-           local oldPos = hrp.CFrame
-           local s = tick()
-           while tick() - s < 3.5 do
-               RS.Heartbeat:Wait()
-               hrp.CanCollide = false
-               hrp.CFrame = target.Character.HumanoidRootPart.CFrame
-               hrp.Velocity = Vector3.new(0,0,0)
-               hrp.RotVelocity = Vector3.new(0, 15000, 0)
-           end
-           hrp.Velocity = Vector3.new(0,0,0); hrp.CFrame = oldPos
-       end
-   end,
-})
-
---- --- --- SCP ESP --- --- ---
-
-local ESP_On = false
 TabVisuals:CreateToggle({
    Name = "Включить ESP",
    CurrentValue = false,
-   Callback = function(Value) ESP_On = Value end,
+   Callback = function(Value) _G.ESP_Enabled = Value end,
 })
 
 task.spawn(function()
     while task.wait(1) do
-        if ESP_On then
+        if _G.ESP_Enabled then
             for _, p in pairs(game.Players:GetPlayers()) do
                 if p ~= LP and p.Character then
                     local h = p.Character:FindFirstChild("RayHighlight") or Instance.new("Highlight", p.Character)
@@ -176,15 +143,9 @@ task.spawn(function()
                     else h.FillColor = Color3.fromRGB(0,255,0) end
                 end
             end
-        else
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p.Character and p.Character:FindFirstChild("RayHighlight") then p.Character.RayHighlight:Destroy() end
-            end
         end
     end
 end)
-
---- --- --- ТЕЛЕПОРТЫ --- --- ---
 
 TabTP:CreateButton({ Name = "🏠 Лобби", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end })
 TabTP:CreateButton({ 
@@ -198,4 +159,4 @@ TabTP:CreateButton({
     end 
 })
 
-Rayfield:Notify({Title = "AlphaControls", Content = "Скрипт готов и обновлен!", Duration = 3})
+Rayfield:Notify({Title = "V6 Обновлена", Content = "Эмоции добавлены, скорость исправлена!", Duration = 3})
