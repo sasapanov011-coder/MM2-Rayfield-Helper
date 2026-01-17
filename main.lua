@@ -1,17 +1,18 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "MM2 | Rayfield Ultimate",
+   Name = "MM2 | Rayfield Ultimate V4",
    LoadingTitle = "Загрузка скрипта...",
    LoadingSubtitle = "by sasapanov011",
    ConfigurationSaving = {
       Enabled = false,
    },
-   KeySystem = false, -- КЛЮЧ УБРАН
+   KeySystem = false, 
 })
 
 local LP = game.Players.LocalPlayer
 local RS = game:GetService("RunService")
+local TS = game:GetService("TweenService")
 
 -- ВКЛАДКИ
 local TabFarm = Window:CreateTab("Автофарм (Fly)", 4483362458)
@@ -19,10 +20,10 @@ local TabCombat = Window:CreateTab("Бой & Fling", 4483362458)
 local TabVisuals = Window:CreateTab("SCP ESP", 4483362458)
 local TabTP = Window:CreateTab("Телепорты", 4483362458)
 
---- --- --- АВТОФАРМ (FLY / ПОЛЕТ) --- --- ---
+--- --- --- АВТОФАРМ С НАСТРОЙКОЙ СКОРОСТИ --- --- ---
 
 local Farming = false
-local FlySpeed = 0
+local FarmSpeed = 1 -- Скорость по умолчанию (1 секунда на полет)
 
 TabFarm:CreateToggle({
    Name = "Включить Fly Autofarm",
@@ -35,26 +36,40 @@ TabFarm:CreateToggle({
               while Farming do
                   local container = workspace:FindFirstChild("CoinContainer", true)
                   if container then
-                      for _, coin in pairs(container:GetChildren()) do
+                      local coins = container:GetChildren()
+                      for i = 1, #coins do
+                          local coin = coins[i]
                           if not Farming then break end
                           
                           local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                          if hrp and coin:IsA("BasePart") then
-                              LP.Character.Humanoid:ChangeState(11) -- Noclip (сквозь стены)
+                          if hrp and coin:IsA("BasePart") and coin:FindFirstChild("TouchInterest") then
+                              LP.Character.Humanoid:ChangeState(11) -- Noclip
                               
-                              -- Полет к монетке
-                              local tween = game:GetService("TweenService"):Create(hrp, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {CFrame = coin.CFrame})
+                              -- Полет с настраиваемой скоростью
+                              local tween = TS:Create(hrp, TweenInfo.new(FarmSpeed, Enum.EasingStyle.Linear), {CFrame = coin.CFrame})
                               tween:Play()
                               tween.Completed:Wait()
                               
-                              task.wait(0.2) -- Собираем
+                              task.wait(0.1) -- Короткая пауза для сбора
                           end
                       end
                   end
-                  task.wait(1)
+                  task.wait(0.5)
               end
           end)
       end
+   end,
+})
+
+TabFarm:CreateSlider({
+   Name = "Скорость полета (меньше = быстрее)",
+   Range = {0.1, 3},
+   Increment = 0.1,
+   Suffix = " сек",
+   CurrentValue = 1,
+   Flag = "FarmSpeedSlider",
+   Callback = function(Value)
+      FarmSpeed = Value
    end,
 })
 
@@ -70,42 +85,33 @@ TabCombat:CreateButton({
            for _, p in pairs(game.Players:GetPlayers()) do
                if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                    LP.Character.Humanoid:EquipTool(knife)
-                   -- ТП за спину
                    LP.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1.2)
                    task.wait(0.15)
                    knife:Activate()
                end
            end
        else
-           Rayfield:Notify({Title = "Ошибка", Content = "Нужен нож (Ты не убийца)", Duration = 2})
+           Rayfield:Notify({Title = "Ошибка", Content = "Нужен нож в руках!", Duration = 2})
        end
    end,
 })
 
 TabCombat:CreateButton({
-   Name = "🔫 Shot Murderer (Выстрел в убийцу)",
+   Name = "🔫 Shot Murderer (Выстрел)",
    Callback = function()
        local murderer = nil
        for _, p in pairs(game.Players:GetPlayers()) do
            if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
-               murderer = p
-               break
+               murderer = p; break
            end
        end
-       
        local gun = LP.Backpack:FindFirstChild("Gun") or LP.Character:FindFirstChild("Gun")
-       
        if murderer and gun then
            LP.Character.Humanoid:EquipTool(gun)
-           local args = {
-               [1] = 1,
-               [2] = murderer.Character.HumanoidRootPart.Position,
-               [3] = "Main"
-           }
+           local args = {[1] = 1, [2] = murderer.Character.HumanoidRootPart.Position, [3] = "Main"}
            game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", unpack(args))
-           Rayfield:Notify({Title = "Успех", Content = "Выстрел произведен!", Duration = 2})
        else
-           Rayfield:Notify({Title = "Ошибка", Content = "Нет пистолета или убийца не найден", Duration = 2})
+           Rayfield:Notify({Title = "Ошибка", Content = "Вы не шериф или М нет", Duration = 2})
        end
    end,
 })
@@ -122,19 +128,8 @@ local Dropdown = TabCombat:CreateDropdown({
    Name = "Выбрать игрока",
    Options = PlayersList,
    CurrentOption = "",
-   Callback = function(Option)
-       TargetName = Option[1]
-   end,
+   Callback = function(Option) TargetName = Option[1] end,
 })
-
--- Обновление списка игроков
-task.spawn(function()
-    while task.wait(5) do
-        local newNames = {}
-        for _, p in pairs(game.Players:GetPlayers()) do table.insert(newNames, p.Name) end
-        Dropdown:Refresh(newNames)
-    end
-end)
 
 TabCombat:CreateButton({
    Name = "🌪 Fling Target",
@@ -143,23 +138,16 @@ TabCombat:CreateButton({
        if target and target.Character then
            local hrp = LP.Character.HumanoidRootPart
            local oldPos = hrp.CFrame
-           
-           Rayfield:Notify({Title = "Fling", Content = "Атака на " .. target.Name, Duration = 2})
-           
            local s = tick()
-           while tick() - s < 4 do
+           while tick() - s < 3.5 do
                if not target.Character then break end
                RS.Heartbeat:Wait()
                hrp.CanCollide = false
                hrp.CFrame = target.Character.HumanoidRootPart.CFrame
                hrp.Velocity = Vector3.new(0,0,0)
-               hrp.RotVelocity = Vector3.new(0, 15000, 0) -- Вращение
+               hrp.RotVelocity = Vector3.new(0, 15555, 0)
            end
-           
-           hrp.Velocity = Vector3.new(0,0,0)
-           hrp.CFrame = oldPos
-       else
-           Rayfield:Notify({Title = "Ошибка", Content = "Игрок не выбран", Duration = 2})
+           hrp.Velocity = Vector3.new(0,0,0); hrp.CFrame = oldPos
        end
    end,
 })
@@ -167,13 +155,10 @@ TabCombat:CreateButton({
 --- --- --- SCP ESP --- --- ---
 
 local ESP_On = false
-
 TabVisuals:CreateToggle({
    Name = "Включить SCP ESP",
    CurrentValue = false,
-   Callback = function(Value)
-      ESP_On = Value
-   end,
+   Callback = function(Value) ESP_On = Value end,
 })
 
 task.spawn(function()
@@ -182,26 +167,17 @@ task.spawn(function()
             for _, p in pairs(game.Players:GetPlayers()) do
                 if p ~= LP and p.Character then
                     local h = p.Character:FindFirstChild("RayHighlight") or Instance.new("Highlight", p.Character)
-                    h.Name = "RayHighlight"
-                    h.Enabled = true
-                    
+                    h.Name = "RayHighlight"; h.Enabled = true
                     local isM = p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")
                     local isS = p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun")
-                    
-                    if isM then
-                        h.FillColor = Color3.fromRGB(255, 0, 0) -- Красный
-                    elseif isS then
-                        h.FillColor = Color3.fromRGB(0, 0, 255) -- Синий
-                    else
-                        h.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый
-                    end
+                    if isM then h.FillColor = Color3.fromRGB(255, 0, 0)
+                    elseif isS then h.FillColor = Color3.fromRGB(0, 0, 255)
+                    else h.FillColor = Color3.fromRGB(0, 255, 0) end
                 end
             end
         else
             for _, p in pairs(game.Players:GetPlayers()) do
-                if p.Character and p.Character:FindFirstChild("RayHighlight") then
-                    p.Character.RayHighlight:Destroy()
-                end
+                if p.Character and p.Character:FindFirstChild("RayHighlight") then p.Character.RayHighlight:Destroy() end
             end
         end
     end
@@ -211,9 +187,7 @@ end)
 
 TabTP:CreateButton({
    Name = "В Лобби",
-   Callback = function()
-       LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10)
-   end,
+   Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end,
 })
 
 TabTP:CreateButton({
@@ -227,4 +201,4 @@ TabTP:CreateButton({
    end,
 })
 
-Rayfield:Notify({Title = "Rayfield Loaded", Content = "Скрипт готов! Ключа нет.", Duration = 3})
+Rayfield:Notify({Title = "Ready", Content = "Скрипт обновлен!", Duration = 3})
