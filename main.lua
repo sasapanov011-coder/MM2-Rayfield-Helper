@@ -1,8 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "AlphaControls | MM2 V12 ULTRA",
-   LoadingTitle = "Загрузка боевых систем...",
+   Name = "AlphaControls | MM2 ULTIMATE V14",
+   LoadingTitle = "Восстановление всех систем...",
    LoadingSubtitle = "by sasapanov011",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false 
@@ -13,11 +13,11 @@ local RS = game:GetService("RunService")
 local TS = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 
--- СОЗДАНИЕ КНОПОК НА ЭКРАНЕ
+-- ГИБКИЕ КНОПКИ НА ЭКРАНЕ
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-ScreenGui.Name = "AlphaMobileButtons"
+ScreenGui.Name = "AlphaUltraButtons"
 
-local function CreateMobileBtn(name, pos, color, callback)
+local function CreateBtn(name, pos, color, callback)
     local Btn = Instance.new("TextButton")
     Btn.Parent = ScreenGui
     Btn.Size = UDim2.fromOffset(90, 40)
@@ -26,163 +26,175 @@ local function CreateMobileBtn(name, pos, color, callback)
     Btn.Text = name
     Btn.TextColor3 = Color3.new(1,1,1)
     Btn.Visible = false
-    Btn.Draggable = true 
-    local Corner = Instance.new("UICorner", Btn)
+    Btn.Draggable = true
+    Instance.new("UICorner", Btn)
     Btn.MouseButton1Click:Connect(callback)
     return Btn
 end
 
--- Логика кнопок
-local function DoShoot()
-    local murderer = nil
+-- Логика для кнопок
+local function ShootM()
+    local m = nil
     for _, p in pairs(game.Players:GetPlayers()) do
-        if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
-            murderer = p break
-        end
+        if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then m = p break end
     end
     local gun = LP.Backpack:FindFirstChild("Gun") or LP.Character:FindFirstChild("Gun")
-    if murderer and gun then
+    if m and gun then
         LP.Character.Humanoid:EquipTool(gun)
-        game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", 1, murderer.Character.HumanoidRootPart.Position, "Main")
+        game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", 1, m.Character.HumanoidRootPart.Position, "Main")
     end
 end
 
-local ScreenShot = CreateMobileBtn("SHOT M", UDim2.new(0.5, -100, 0.85, 0), Color3.fromRGB(0, 100, 255), DoShoot)
-local ScreenKill = CreateMobileBtn("KILL ALL", UDim2.new(0.5, 10, 0.85, 0), Color3.fromRGB(200, 0, 0), function()
-    -- Kill All Logic
-    local knife = LP.Backpack:FindFirstChild("Knife") or LP.Character:FindFirstChild("Knife")
-    if knife then
+local function KAll()
+    local k = LP.Backpack:FindFirstChild("Knife") or LP.Character:FindFirstChild("Knife")
+    if k then
         for _, p in pairs(game.Players:GetPlayers()) do
             if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                LP.Character.Humanoid:EquipTool(knife)
+                LP.Character.Humanoid:EquipTool(k)
                 LP.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
                 task.wait(0.1)
-                knife:Activate()
+                k:Activate()
             end
         end
     end
-end)
+end
+
+local ScreenShot = CreateBtn("SHOT M", UDim2.new(0.5, -100, 0.8, 0), Color3.fromRGB(0, 120, 255), ShootM)
+local ScreenKill = CreateBtn("KILL ALL", UDim2.new(0.5, 10, 0.8, 0), Color3.fromRGB(255, 0, 0), KAll)
 
 -- ВКЛАДКИ
-local TabCombat = Window:CreateTab("Бой & Аим", 4483362458)
 local TabFarm = Window:CreateTab("Автофарм", 4483362458)
+local TabCombat = Window:CreateTab("Бой & Аим", 4483362458)
+local TabFling = Window:CreateTab("Fling (Выкинуть)", 4483362458)
 local TabEmotes = Window:CreateTab("Эмоции", 4483362458)
 local TabVisuals = Window:CreateTab("SCP ESP", 4483362458)
 local TabMisc = Window:CreateTab("Разное", 4483362458)
 
---- --- --- НОВОЕ: KILL AURA & MURDER LOCK --- --- ---
-
-local KillAuraEnabled = false
-TabCombat:CreateToggle({
-   Name = "Авто-удар (Kill Aura)",
-   CurrentValue = false,
-   Callback = function(v) KillAuraEnabled = v end
-})
-
-task.spawn(function()
-    while task.wait(0.1) do
-        if KillAuraEnabled then
-            local knife = LP.Character:FindFirstChild("Knife") or LP.Backpack:FindFirstChild("Knife")
-            if knife then
-                for _, p in pairs(game.Players:GetPlayers()) do
-                    if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < 15 then
-                            LP.Character.Humanoid:EquipTool(knife)
-                            knife:Activate()
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
-local MurderLock = false
-TabCombat:CreateToggle({
-   Name = "Слежка за Убийцей (Cam Lock)",
-   CurrentValue = false,
-   Callback = function(v) 
-       MurderLock = v 
-       -- Включаем ShiftLock эффект
-       LP.DevEnableMouseLock = v
-   end
-})
-
-RS.RenderStepped:Connect(function()
-    if MurderLock then
-        local target = nil
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
-                target = p.Character:FindFirstChild("HumanoidRootPart")
-                break
-            end
-        end
-        if target then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-        end
-    end
-end)
-
-TabCombat:CreateToggle({Name = "SHOT M на экране", CurrentValue = false, Callback = function(v) ScreenShot.Visible = v end})
-TabCombat:CreateToggle({Name = "KILL ALL на экране", CurrentValue = false, Callback = function(v) ScreenKill.Visible = v end})
-
---- --- --- АВТОФАРМ (ИСПРАВЛЕННЫЙ) --- --- ---
+--- --- --- АВТОФАРМ --- --- ---
 _G.FarmSpeed = 30
 TabFarm:CreateToggle({
    Name = "Fly Autofarm",
    CurrentValue = false,
    Callback = function(v) 
-       _G.Farming = v 
+       _G.Farming = v
        task.spawn(function()
            while _G.Farming do
-               local coins = workspace:FindFirstChild("CoinContainer", true)
-               if coins then
-                   for _, c in pairs(coins:GetChildren()) do
+               local container = workspace:FindFirstChild("CoinContainer", true)
+               if container then
+                   for _, coin in pairs(container:GetChildren()) do
                        if not _G.Farming then break end
-                       if c:IsA("BasePart") then
+                       if coin:IsA("BasePart") then
                            local hrp = LP.Character.HumanoidRootPart
                            LP.Character.Humanoid:ChangeState(11)
-                           local duration = (hrp.Position - c.Position).Magnitude / _G.FarmSpeed
-                           TS:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = c.CFrame}):Play()
-                           task.wait(duration + 0.1)
+                           local dur = (hrp.Position - coin.Position).Magnitude / _G.FarmSpeed
+                           TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = coin.CFrame}):Play()
+                           task.wait(dur + 0.1)
                        end
                    end
                end
-               task.wait(0.2)
+               task.wait(0.5)
            end
        end)
    end
 })
 
 TabFarm:CreateSlider({
-   Name = "Скорость полета",
+   Name = "Скорость (больше = быстрее)",
    Range = {10, 250},
    Increment = 10,
    CurrentValue = 30,
    Callback = function(v) _G.FarmSpeed = v end
 })
 
+--- --- --- БОЙ & SHIFT LOCK --- --- ---
+local SL_Lock = false
+TabCombat:CreateToggle({
+    Name = "Shift Lock на Murderer",
+    CurrentValue = false,
+    Callback = function(v) SL_Lock = v end
+})
+
+RS.RenderStepped:Connect(function()
+    if SL_Lock then
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, p.Character.HumanoidRootPart.Position)
+            end
+        end
+    end
+end)
+
+TabCombat:CreateToggle({Name = "SHOT на экране", CurrentValue = false, Callback = function(v) ScreenShot.Visible = v end})
+TabCombat:CreateToggle({Name = "KILL ALL на экране", CurrentValue = false, Callback = function(v) ScreenKill.Visible = v end})
+
+--- --- --- FLING --- --- ---
+local function FlingAction(Target)
+    if Target and Target.Character then
+        local hrp = LP.Character.HumanoidRootPart
+        local old = hrp.CFrame
+        local s = tick()
+        while tick() - s < 3 do
+            RS.Heartbeat:Wait()
+            hrp.CanCollide = false
+            hrp.CFrame = Target.Character.HumanoidRootPart.CFrame
+            hrp.Velocity = Vector3.new(0, 100000, 0)
+            hrp.RotVelocity = Vector3.new(0, 100000, 0)
+        end
+        hrp.Velocity = Vector3.new(0,0,0); hrp.CFrame = old
+    end
+end
+
+TabFling:CreateButton({Name = "Выкинуть Убийцу (Fling)", Callback = function()
+    for _,p in pairs(game.Players:GetPlayers()) do if p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife") then FlingAction(p) end end
+end})
+
+TabFling:CreateButton({Name = "Выкинуть Шерифа (Fling)", Callback = function()
+    for _,p in pairs(game.Players:GetPlayers()) do if p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun") then FlingAction(p) end end
+end})
+
+local SelName = ""
+local Drop = TabFling:CreateDropdown({
+    Name = "Выбрать игрока",
+    Options = {"Загрузка..."},
+    Callback = function(v) SelName = v[1] end
+})
+
+task.spawn(function()
+    while task.wait(5) do
+        local pl = {}
+        for _,p in pairs(game.Players:GetPlayers()) do table.insert(pl, p.Name) end
+        Drop:Refresh(pl)
+    end
+end)
+
+TabFling:CreateButton({Name = "Flight (Fling Выбранного)", Callback = function() FlingAction(game.Players:FindFirstChild(SelName)) end})
+
 --- --- --- ЭМОЦИИ --- --- ---
-local function PlayEm(id)
+local function Play(id)
     local a = Instance.new("Animation")
     a.AnimationId = "rbxassetid://"..id
     LP.Character.Humanoid:LoadAnimation(a):Play()
 end
-TabEmotes:CreateButton({Name = "Дзен", Callback = function() PlayEm("3189777795") end})
-TabEmotes:CreateButton({Name = "Сидеть", Callback = function() PlayEm("3189776528") end})
-TabEmotes:CreateButton({Name = "Флос", Callback = function() PlayEm("3189778954") end})
-TabEmotes:CreateButton({Name = "Зомби", Callback = function() PlayEm("3189780444") end})
+TabEmotes:CreateButton({Name = "Дзен", Callback = function() Play("3189777795") end})
+TabEmotes:CreateButton({Name = "Сидеть", Callback = function() Play("3189776528") end})
+TabEmotes:CreateButton({Name = "Флос", Callback = function() Play("3189778954") end})
+TabEmotes:CreateButton({Name = "Зомби", Callback = function() Play("3189780444") end})
 
---- --- --- ОСТАЛЬНОЕ --- --- ---
-TabVisuals:CreateToggle({Name = "SCP ESP", CurrentValue = false, Callback = function(v) _G.ESP = v end})
+--- --- --- РАЗНОЕ --- --- ---
+TabMisc:CreateButton({Name = "💰 +1M Монет (Визуал)", Callback = function() LP.PlayerGui.MainGui.Game.Coins.Text = "1,000,000" end})
+TabMisc:CreateButton({Name = "📦 Открыть Chroma Box (Визуал)", Callback = function() Rayfield:Notify({Title = "BOX", Content = "Вы выбили Chroma Luger!"}) end})
+
+TabMisc:CreateToggle({Name = "Anti-Fling", CurrentValue = true, Callback = function(v) _G.AF = v end})
+RS.Heartbeat:Connect(function() if _G.AF and LP.Character then for _,p in pairs(LP.Character:GetChildren()) do if p:IsA("BasePart") then p.CanCollide = false end end end end)
+
+TabVisuals:CreateToggle({Name = "ESP", CurrentValue = false, Callback = function(v) _G.ESP = v end})
 task.spawn(function()
     while task.wait(1) do
         if _G.ESP then
-            for _, p in pairs(game.Players:GetPlayers()) do
+            for _,p in pairs(game.Players:GetPlayers()) do
                 if p ~= LP and p.Character then
-                    local h = p.Character:FindFirstChild("RayH") or Instance.new("Highlight", p.Character)
-                    h.Name = "RayH"
+                    local h = p.Character:FindFirstChild("H") or Instance.new("Highlight", p.Character)
+                    h.Name = "H"
                     local isM = p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")
                     local isS = p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun")
                     h.FillColor = isM and Color3.new(1,0,0) or isS and Color3.new(0,0,1) or Color3.new(0,1,0)
@@ -192,9 +204,4 @@ task.spawn(function()
     end
 end)
 
-TabMisc:CreateToggle({Name = "Anti-Fling", CurrentValue = true, Callback = function(v)
-    _G.AF = v
-    RS.Heartbeat:Connect(function() if _G.AF and LP.Character then for _,pt in pairs(LP.Character:GetChildren()) do if pt:IsA("BasePart") then pt.CanCollide = false end end end end)
-end})
-
-Rayfield:Notify({Title = "V12 Ultra Loaded", Content = "Килаура и Cam Lock добавлены!", Duration = 5})
+Rayfield:Notify({Title = "Alpha V14", Content = "Скрипт полностью восстановлен!", Duration = 5})
