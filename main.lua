@@ -1,14 +1,6 @@
-local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
-local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
-local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
-local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
 
-local Window = Library:CreateWindow({
-    Title = 'AlphaControls | MM2 LINORIA V9',
-    Center = true,
-    AutoShow = true,
-    TabWidth = 160,
-})
+local Window = OrionLib:MakeWindow({Name = "AlphaControls | MM2 Orion V10", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionMM2", IntroEnabled = false})
 
 local LP = game.Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -67,23 +59,22 @@ local ScreenShot = CreateMobileBtn("SHOT M", UDim2.new(0.5, -100, 0.85, 0), Colo
 local ScreenKill = CreateMobileBtn("KILL ALL", UDim2.new(0.5, 10, 0.85, 0), Color3.fromRGB(200, 0, 0), KillAll)
 
 -- ВКЛАДКИ
-local Tabs = {
-    Main = Window:AddTab('Автофарм'),
-    Combat = Window:AddTab('Бой & Кнопки'),
-    Visuals = Window:AddTab('Визуалы'),
-    Emotes = Window:AddTab('Эмоции'),
-    Teleport = Window:AddTab('Телепорты'),
-    ['UI Settings'] = Window:AddTab('Настройки'),
-}
+local TabFarm = Window:MakeTab({Name = "Автофарм", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local TabCombat = Window:MakeTab({Name = "Бой & Кнопки", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local TabEmotes = Window:MakeTab({Name = "Эмоции", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local TabVisuals = Window:MakeTab({Name = "ESP", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local TabTP = Window:MakeTab({Name = "Телепорты", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local TabMisc = Window:MakeTab({Name = "Разное", Icon = "rbxassetid://4483345998", PremiumOnly = false})
 
 --- --- --- АВТОФАРМ --- --- ---
-local FarmGroup = Tabs.Main:AddLeftGroupbox('Fly Autofarm')
+_G.Farming = false
+_G.FarmSpeed = 20
 
-FarmGroup:AddToggle('FarmToggle', {
-    Text = 'Включить Автофарм',
-    Default = false,
-    Callback = function(Value)
-        _G.Farming = Value
+TabFarm:AddToggle({
+	Name = "Включить Fly Autofarm",
+	Default = false,
+	Callback = function(Value)
+		_G.Farming = Value
         if Value then
             task.spawn(function()
                 while _G.Farming do
@@ -94,7 +85,7 @@ FarmGroup:AddToggle('FarmToggle', {
                             if c:IsA("BasePart") and c:FindFirstChild("TouchInterest") then
                                 local hrp = LP.Character.HumanoidRootPart
                                 LP.Character.Humanoid:ChangeState(11)
-                                local duration = (hrp.Position - c.Position).Magnitude / (Toggles.FarmSpeed and Options.FarmSpeed.Value or 20)
+                                local duration = (hrp.Position - c.Position).Magnitude / _G.FarmSpeed
                                 TS:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = c.CFrame}):Play()
                                 task.wait(duration + 0.1)
                             end
@@ -104,47 +95,36 @@ FarmGroup:AddToggle('FarmToggle', {
                 end
             end)
         end
-    end
+	end    
 })
 
-FarmGroup:AddSlider('FarmSpeed', {
-    Text = 'Скорость полета',
-    Default = 20,
-    Min = 10,
-    Max = 200,
-    Rounding = 0,
+TabFarm:AddSlider({
+	Name = "Скорость полета",
+	Min = 10,
+	Max = 200,
+	Default = 20,
+	Color = Color3.fromRGB(255,255,255),
+	Increment = 5,
+	ValueName = "Скор.",
+	Callback = function(Value)
+		_G.FarmSpeed = Value
+	end    
 })
 
---- --- --- БОЙ & КНОПКИ --- --- ---
-local CombatGroup = Tabs.Combat:AddLeftGroupbox('Экранные Кнопки')
-
-CombatGroup:AddToggle('ShowShotBtn', {
-    Text = 'Показать кнопку SHOT',
-    Default = false,
-    Callback = function(v) ScreenShot.Visible = v end
+--- --- --- БОЙ & ЭКРАННЫЕ КНОПКИ --- --- ---
+TabCombat:AddToggle({
+	Name = "Показать SHOT на экране",
+	Default = false,
+	Callback = function(Value) ScreenShot.Visible = Value end
 })
 
-CombatGroup:AddToggle('ShowKillBtn', {
-    Text = 'Показать кнопку KILL ALL',
-    Default = false,
-    Callback = function(v) ScreenKill.Visible = v end
+TabCombat:AddToggle({
+	Name = "Показать KILL ALL на экране",
+	Default = false,
+	Callback = function(Value) ScreenKill.Visible = Value end
 })
 
-local FlingGroup = Tabs.Combat:AddRightGroupbox('Fling / Выкидывание')
-
-FlingGroup:AddDropdown('FlingTarget', {
-    Values = {},
-    Text = 'Выбрать игрока',
-    Multi = false,
-})
-
-task.spawn(function()
-    while task.wait(5) do
-        local plrs = {}
-        for _, p in pairs(game.Players:GetPlayers()) do table.insert(plrs, p.Name) end
-        Options.FlingTarget:SetValues(plrs)
-    end
-end)
+TabCombat:AddSection({Name = "Fling"})
 
 local function FastFling(target)
     if target and target.Character then
@@ -162,38 +142,42 @@ local function FastFling(target)
     end
 end
 
-FlingGroup:AddButton('Выкинуть выбранного', function() FastFling(game.Players:FindFirstChild(Options.FlingTarget.Value)) end)
-FlingGroup:AddButton('Выкинуть Убийцу', function() 
-    for _,p in pairs(game.Players:GetPlayers()) do 
-        if p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife") then FastFling(p) end 
-    end 
-end)
+TabCombat:AddButton({
+	Name = "Выкинуть Убийцу",
+	Callback = function()
+        for _,p in pairs(game.Players:GetPlayers()) do 
+            if p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife") then FastFling(p) end 
+        end
+    end    
+})
 
 --- --- --- ЭМОЦИИ --- --- ---
-local EmoteGroup = Tabs.Emotes:AddLeftGroupbox('Анимации')
-
 local function PlayEm(id)
     local a = Instance.new("Animation")
     a.AnimationId = "rbxassetid://"..id
     LP.Character.Humanoid:LoadAnimation(a):Play()
 end
 
-EmoteGroup:AddButton('Дзен', function() PlayEm("3189777795") end)
-EmoteGroup:AddButton('Сидеть', function() PlayEm("3189776528") end)
-EmoteGroup:AddButton('Флос', function() PlayEm("3189778954") end)
-EmoteGroup:AddButton('Зомби', function() PlayEm("3189780444") end)
+TabEmotes:AddButton({Name = "Дзен", Callback = function() PlayEm("3189777795") end})
+TabEmotes:AddButton({Name = "Сидеть", Callback = function() PlayEm("3189776528") end})
+TabEmotes:AddButton({Name = "Флос", Callback = function() PlayEm("3189778954") end})
+TabEmotes:AddButton({Name = "Зомби", Callback = function() PlayEm("3189780444") end})
 
 --- --- --- ВИЗУАЛЫ & РАЗНОЕ --- --- ---
-local VisGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
-VisGroup:AddToggle('EspToggle', { Text = 'ESP Роли', Default = false })
+_G.ESP = false
+TabVisuals:AddToggle({
+	Name = "ESP Роли",
+	Default = false,
+	Callback = function(Value) _G.ESP = Value end
+})
 
 task.spawn(function()
     while task.wait(1) do
-        if Toggles.EspToggle.Value then
+        if _G.ESP then
             for _, p in pairs(game.Players:GetPlayers()) do
                 if p ~= LP and p.Character then
-                    local h = p.Character:FindFirstChild("LinHighlight") or Instance.new("Highlight", p.Character)
-                    h.Name = "LinHighlight"
+                    local h = p.Character:FindFirstChild("OrionH") or Instance.new("Highlight", p.Character)
+                    h.Name = "OrionH"
                     local isM = p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")
                     local isS = p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun")
                     h.FillColor = isM and Color3.new(1,0,0) or isS and Color3.new(0,0,1) or Color3.new(0,1,0)
@@ -203,13 +187,13 @@ task.spawn(function()
     end
 end)
 
-local MiscGroup = Tabs['UI Settings']:AddLeftGroupbox('Защита')
-MiscGroup:AddToggle('AntiFling', {
-    Text = 'Anti-Fling',
-    Default = true,
-    Callback = function(v)
+TabMisc:AddToggle({
+	Name = "Anti-Fling",
+	Default = true,
+	Callback = function(Value)
+        _G.AF = Value
         RS.Heartbeat:Connect(function() 
-            if Toggles.AntiFling.Value and LP.Character then 
+            if _G.AF and LP.Character then 
                 for _,pt in pairs(LP.Character:GetChildren()) do if pt:IsA("BasePart") then pt.CanCollide = false end end 
             end 
         end)
@@ -217,11 +201,10 @@ MiscGroup:AddToggle('AntiFling', {
 })
 
 --- --- --- ТЕЛЕПОРТЫ --- --- ---
-local TPGroup = Tabs.Teleport:AddLeftGroupbox('Мгновенные ТП')
-TPGroup:AddButton('Лобби', function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end)
-TPGroup:AddButton('Карта', function() 
+TabTP:AddButton({Name = "Лобби", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end})
+TabTP:AddButton({Name = "Карта", Callback = function() 
     local m = workspace:FindFirstChild("Map") or workspace:FindFirstChild("ActiveMap") 
     if m then LP.Character.HumanoidRootPart.CFrame = m:FindFirstChildOfClass("Part", true).CFrame end 
-end)
+end})
 
-Library:Notify('AlphaControls V9 Linoria Загружена!')
+OrionLib:Init()
