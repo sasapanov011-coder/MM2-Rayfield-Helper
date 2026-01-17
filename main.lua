@@ -1,115 +1,81 @@
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- TMS VCL UI Pack Style Implementation
+local TMS = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/main.lua"))()
 
--- СОЗДАНИЕ КНОПКИ "OPEN" ПРИ ЗАКРЫТИИ
-local OpenGui = Instance.new("ScreenGui")
-local OpenButton = Instance.new("TextButton")
-
-OpenGui.Name = "OpenGui"
-OpenGui.Parent = game.CoreGui
-OpenGui.Enabled = false
-
-OpenButton.Name = "OpenButton"
-OpenButton.Parent = OpenGui
-OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-OpenButton.Position = UDim2.new(0.5, -25, 0, 10)
-OpenButton.Size = UDim2.new(0, 50, 0, 25)
-OpenButton.Font = Enum.Font.GothamBold
-OpenButton.Text = "OPEN"
-OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-OpenButton.TextSize = 14:
-
-OpenButton.MouseButton1Click:Connect(function()
-    Fluent:Toggle()
-end)
-
-local Window = Fluent:CreateWindow({
-    Title = "TMS VCL UI | MM2 MEGA MOD",
-    SubTitle = "by sasapanov011-coder",
+local Window = TMS:CreateWindow({
+    Title = "TMS VCL UI Pack | MM2",
+    SubTitle = "v2.0 Professional",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
     Theme = "Dark"
 })
 
--- Отслеживание состояния окна для кнопки
-task.spawn(function()
-    while task.wait(0.5) do
-        OpenGui.Enabled = not Fluent.Visible
-    end
-end)
-
 local Tabs = {
-    Main = Window:AddTab({ Title = "Автофарм", Icon = "car" }),
-    Combat = Window:AddTab({ Title = "Fling / Бой", Icon = "shield" }),
-    Visuals = Window:AddTab({ Title = "ESP (SCP)", Icon = "eye" }),
-    World = Window:AddTab({ Title = "Мир", Icon = "map" })
+    Main = Window:AddTab({ Title = "Автофарм", Icon = "settings" }),
+    Combat = Window:AddTab({ Title = "Флинг/Бой", Icon = "swords" }),
+    Visuals = Window:AddTab({ Title = "SCP ESP", Icon = "eye" }),
+    Teleport = Window:AddTab({ Title = "Телепорты", Icon = "map" })
 }
 
-local Options = Fluent.Options
 local LP = game.Players.LocalPlayer
+local RS = game:GetService("RunService")
 
---- --- --- ЛОГИКА FLING (ВЫШИБАНИЕ) --- --- ---
+-- Переменные конфигурации
+local Config = {
+    Flinging = false,
+    AntiFling = true,
+    ShowInnocents = true,
+    ShowSheriff = true,
+    ShowMurderer = true
+}
 
-local function PowerFling(Target)
+--- --- --- ЖЕСТКИЙ FLING (FIXED) --- --- ---
+
+local function SecureFling(Target)
     if not Target or not Target.Character then return end
     local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
     local trp = Target.Character:FindFirstChild("HumanoidRootPart")
     
     if hrp and trp then
         local oldPos = hrp.CFrame
-        local timer = 0
+        Config.Flinging = true
         
-        -- Делаем персонажа невидимым/прозрачным для флинга
+        -- Чтобы не улететь самому, отключаем столкновения
         for _, v in pairs(LP.Character:GetDescendants()) do
             if v:IsA("BasePart") then v.CanCollide = false end
         end
 
-        repeat
-            timer = timer + 1
-            hrp.CFrame = trp.CFrame * CFrame.new(0, 0, 0) * CFrame.Angles(math.random(), math.random(), math.random())
-            hrp.Velocity = Vector3.new(1000000, 1000000, 1000000) -- Огромная скорость
-            task.wait(0.01)
-        until timer >= 60 or not trp.Parent
+        local start = tick()
+        while tick() - start < 3 and trp.Parent do
+            RS.Heartbeat:Wait()
+            hrp.CFrame = trp.CFrame * CFrame.new(0, 0, 0)
+            -- Вращение для выбивания (Spin)
+            hrp.Velocity = Vector3.new(0, 5000, 0) 
+            hrp.RotVelocity = Vector3.new(0, 10000, 0)
+        end
         
         hrp.Velocity = Vector3.new(0,0,0)
+        hrp.RotVelocity = Vector3.new(0,0,0)
         hrp.CFrame = oldPos
+        Config.Flinging = false
     end
 end
 
---- --- --- АВТОПОДБОР ПИСТОЛЕТА --- --- ---
-
-task.spawn(function()
-    while task.wait(0.1) do
-        if Options.AutoPickGun and Options.AutoPickGun.Value then
-            local gunDrop = workspace:FindFirstChild("GunDrop")
-            if gunDrop and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local oldPos = LP.Character.HumanoidRootPart.CFrame
-                LP.Character.HumanoidRootPart.CFrame = gunDrop.CFrame
-                task.wait(0.3)
-                LP.Character.HumanoidRootPart.CFrame = oldPos
-            end
-        end
-    end
-end)
-
 --- --- --- ВКЛАДКА: АВТОФАРМ --- --- ---
 
-Tabs.Main:AddToggle("FarmToggle", {Title = "Включить Автофарм", Default = false})
-Tabs.Main:AddToggle("UnderToggle", {Title = "Скрытый режим (Под полом)", Default = true})
+Tabs.Main:AddToggle("FarmUnder", {Title = "Скрытый Автофарм (Under)", Default = false})
 
 task.spawn(function()
     while task.wait(0.1) do
-        if Options.FarmToggle and Options.FarmToggle.Value then
-            local container = workspace:FindFirstChild("CoinContainer", true)
-            if container then
-                for _, coin in pairs(container:GetChildren()) do
-                    if not Options.FarmToggle.Value then break end
-                    local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp and coin:IsA("BasePart") then
-                        LP.Character.Humanoid:ChangeState(11) -- Noclip
-                        local yOff = Options.UnderToggle.Value and -7 or 0
-                        hrp.CFrame = coin.CFrame * CFrame.new(0, yOff, 0)
-                        task.wait(1.5)
+        if TMS.Options.FarmUnder.Value then
+            local coins = workspace:FindFirstChild("CoinContainer", true)
+            if coins then
+                for _, coin in pairs(coins:GetChildren()) do
+                    if not TMS.Options.FarmUnder.Value then break end
+                    if coin:IsA("BasePart") and LP.Character:FindFirstChild("HumanoidRootPart") then
+                        LP.Character.Humanoid:ChangeState(11)
+                        LP.Character.HumanoidRootPart.CFrame = coin.CFrame * CFrame.new(0, -7, 0)
+                        task.wait(1.2)
                     end
                 end
             end
@@ -117,72 +83,96 @@ task.spawn(function()
     end
 end)
 
---- --- --- ВКЛАДКА: COMBAT --- --- ---
+--- --- --- ВКЛАДКА: БОЙ --- --- ---
 
-local PlayerDrop = Tabs.Combat:AddDropdown("PSelect", {
-    Title = "Выбрать жертву",
+local PlayerList = Tabs.Combat:AddDropdown("TargetList", {
+    Title = "Выбрать игрока",
     Values = {"..."},
-    Callback = function(v) _G.Target = game.Players:FindFirstChild(v) end
+    Callback = function(v) _G.ToFling = game.Players:FindFirstChild(v) end
 })
 
 task.spawn(function()
-    while task.wait(3) do
+    while task.wait(2) do
         local names = {}
         for _, p in pairs(game.Players:GetPlayers()) do table.insert(names, p.Name) end
-        PlayerDrop:SetValues(names)
+        PlayerList:SetValues(names)
     end
 end)
 
-Tabs.Combat:AddButton({Title = "ВЫКИНУТЬ ЦЕЛЬ (Fling)", Callback = function() PowerFling(_G.Target) end})
+Tabs.Combat:AddButton({
+    Title = "Выбросить игрока (FLING)",
+    Callback = function() SecureFling(_G.ToFling) end
+})
 
 Tabs.Combat:AddButton({
-    Title = "ВЫКИНУТЬ ШЕРИФА",
+    Title = "Выбросить ШЕРИФА",
     Callback = function()
         for _, p in pairs(game.Players:GetPlayers()) do
             if p.Backpack:FindFirstChild("Gun") or (p.Character and p.Character:FindFirstChild("Gun")) then
-                PowerFling(p)
+                SecureFling(p)
             end
         end
     end
 })
 
-Tabs.Combat:AddToggle("AutoPickGun", {Title = "Автоподбор пистолета", Default = false})
-Tabs.Combat:AddToggle("AntiFling", {Title = "Анти-Флинг Защита", Default = true})
+Tabs.Combat:AddToggle("AntiFling", {Title = "Анти-Флинг (Защита)", Default = true})
 
---- --- --- ВКЛАДКА: VISUALS (ПОЛНЫЙ ESP) --- --- ---
+--- --- --- ВКЛАДКА: ESP (УПРАВЛЯЕМЫЙ) --- --- ---
+
+Tabs.Visuals:AddToggle("EspGlobal", {Title = "Включить ESP", Default = false})
+Tabs.Visuals:AddToggle("ShowM", {Title = "Показывать Убийцу", Default = true, Callback = function(v) Config.ShowMurderer = v end})
+Tabs.Visuals:AddToggle("ShowS", {Title = "Показывать Шерифа", Default = true, Callback = function(v) Config.ShowSheriff = v end})
+Tabs.Visuals:AddToggle("ShowI", {Title = "Показывать Мирных", Default = true, Callback = function(v) Config.ShowInnocents = v end})
 
 local function ApplyESP()
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= LP and p.Character then
             local char = p.Character
-            local h = char:FindFirstChild("TMS_ESP") or Instance.new("Highlight", char)
-            h.Name = "TMS_ESP"
-            h.Enabled = Options.ESPToggle.Value
+            local h = char:FindFirstChild("TMS_VCL_ESP") or Instance.new("Highlight", char)
+            h.Name = "TMS_VCL_ESP"
             
             local isM = p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
-            local isS = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver")
+            local isS = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun")
             
-            if isM then
-                h.FillColor = Color3.fromRGB(255, 0, 0) -- Красный
-            elseif isS then
-                h.FillColor = Color3.fromRGB(0, 0, 255) -- Синий
-            else
-                h.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый
+            h.Enabled = false
+            if TMS.Options.EspGlobal.Value then
+                if isM and Config.ShowMurderer then
+                    h.FillColor = Color3.fromRGB(255, 0, 0)
+                    h.Enabled = true
+                elseif isS and Config.ShowSheriff then
+                    h.FillColor = Color3.fromRGB(0, 0, 255)
+                    h.Enabled = true
+                elseif not isM and not isS and Config.ShowInnocents then
+                    h.FillColor = Color3.fromRGB(0, 255, 0)
+                    h.Enabled = true
+                end
             end
         end
     end
 end
 
-Tabs.Visuals:AddToggle("ESPToggle", {Title = "Включить ESP (Все роли)", Default = false})
-
 task.spawn(function()
-    while task.wait(0.5) do
-        if Options.ESPToggle and Options.ESPToggle.Value then ApplyESP() end
-    end
+    while task.wait(0.5) do ApplyESP() end
 end)
 
---- --- --- ВКЛАДКА: ТЕЛЕПОРТЫ --- --- ---
+--- --- --- ВКЛАДКА: ТЕЛЕПОРТЫ (МГНОВЕННЫЕ) --- --- ---
 
-Tabs.World:AddButton({Title = "Телепорт в Лобби", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end})
+Tabs.Teleport:AddButton({
+    Title = "Мгновенно в Лобби",
+    Callback = function()
+        LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10)
+    end
+})
 
-Fluent:Notify({Title = "TMS VCL UI", Content = "Скрипт загружен! Кнопка OPEN сверху.", Duration = 5})
+Tabs.Teleport:AddButton({
+    Title = "Мгновенно на Карту",
+    Callback = function()
+        local map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("ActiveMap")
+        if map then
+            local sp = map:FindFirstChild("Spawn", true) or map:FindFirstChildOfClass("Part")
+            LP.Character.HumanoidRootPart.CFrame = sp.CFrame
+        end
+    end
+})
+
+TMS:Notify({Title = "TMS VCL UI Pack", Content = "Скрипт готов к работе!", Duration = 3})
