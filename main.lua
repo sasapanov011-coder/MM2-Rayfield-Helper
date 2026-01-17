@@ -1,8 +1,8 @@
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "MM2 ALPHA CONTROLS",
-    SubTitle = "by sasapanov011",
+    Title = "DevExpress VCL | MM2 PREMIUM",
+    SubTitle = "by sasapanov011-coder",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = true,
@@ -10,164 +10,169 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "Автофарм", Icon = "home" }),
-    Combat = Window:AddTab({ Title = "Бой", Icon = "swords" }),
-    Visuals = Window:AddTab({ Title = "ESP (Визуалы)", Icon = "eye" })
+    Main = Window:AddTab({ Title = "Автофарм (Fly)", Icon = "send" }),
+    Combat = Window:AddTab({ Title = "Target & Fling", Icon = "target" }),
+    Visuals = Window:AddTab({ Title = "SCP ESP", Icon = "eye" }),
+    Misc = Window:AddTab({ Title = "Настройки", Icon = "settings" })
 }
 
 local Options = Fluent.Options
 
--- Переменные
-local AutofarmDelay = 2
+-- Переменные управления
+local FlySpeed = 50
 local ESPEnabled = false
+local SelectedPlayer = nil
 
---- --- --- ФУНКЦИИ --- --- ---
+--- --- --- ЛОГИКА ПОЛЕТА И ФАРМА --- --- ---
 
--- Поиск монет (Снежинок)
 local function GetCoin()
     local container = workspace:FindFirstChild("CoinContainer", true) or workspace:FindFirstChild("Coins", true)
     if container then
         for _, v in pairs(container:GetChildren()) do
-            if v:IsA("BasePart") or v:FindFirstChild("TouchInterest") then
-                return v
-            end
+            if v:IsA("BasePart") then return v end
         end
     end
     return nil
 end
 
--- Логика Автофарма
 task.spawn(function()
     while true do
-        if Options.AutofarmToggle and Options.AutofarmToggle.Value then
+        if Options.FlyFarm and Options.FlyFarm.Value then
             local coin = GetCoin()
-            local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            
-            if coin and hrp then
-                hrp.Parent.Humanoid:ChangeState(11) -- Noclip
-                hrp.CFrame = coin.CFrame
-                task.wait(AutofarmDelay)
+            local char = game.Players.LocalPlayer.Character
+            if coin and char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                char.Humanoid:ChangeState(11) -- Noclip
+                
+                -- Плавный полет (Lerp) к монетке со скоростью
+                local dist = (hrp.Position - coin.Position).Magnitude
+                local waitTime = dist / FlySpeed
+                
+                local tween = game:GetService("TweenService"):Create(hrp, TweenInfo.new(waitTime, Enum.EasingStyle.Linear), {CFrame = coin.CFrame})
+                tween:Play()
+                tween.Completed:Wait()
             end
         end
         task.wait(0.1)
     end
 end)
 
---- --- --- ВКЛАДКА: ГЛАВНАЯ (АВТОФАРМ) --- --- ---
+--- --- --- ЛОГИКА FLING (ВЫШИБАНИЕ) --- --- ---
 
-Tabs.Main:AddToggle("AutofarmToggle", {Title = "Включить Автофарм", Default = false})
+local function FlingPlayer(target)
+    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+    local targetHrp = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if targetHrp then
+        local oldCFrame = hrp.CFrame
+        local th = 0
+        while targetHrp and targetHrp.Parent and th < 50 do -- 5 секунд попыток
+            th = th + 1
+            hrp.CFrame = targetHrp.CFrame * CFrame.Angles(math.random(), math.random(), math.random())
+            hrp.Velocity = Vector3.new(5000, 5000, 5000) -- Бешеная скорость для флинга
+            task.wait(0.01)
+        end
+        hrp.Velocity = Vector3.new(0,0,0)
+        hrp.CFrame = oldCFrame
+    end
+end
 
-Tabs.Main:AddSlider("DelaySlider", {
-    Title = "Задержка телепорта",
-    Description = "Через сколько секунд прыгать к новой монете",
-    Default = 2,
-    Min = 0.5,
-    Max = 10,
-    Rounding = 1,
+--- --- --- ВКЛАДКА: АВТОФАРМ --- --- ---
+
+Tabs.Main:AddToggle("FlyFarm", {Title = "Включить Fly Autofarm", Default = false})
+
+Tabs.Main:AddSlider("FlySpeed", {
+    Title = "Скорость полета",
+    Default = 50,
+    Min = 10,
+    Max = 200,
+    Rounding = 0,
     Callback = function(Value)
-        AutofarmDelay = Value
+        FlySpeed = Value
     end
 })
 
---- --- --- ВКЛАДКА: БОЙ --- --- ---
+--- --- --- ВКЛАДКА: TARGET --- --- ---
 
 local PlayerDropdown = Tabs.Combat:AddDropdown("PlayerSelect", {
-    Title = "Выбрать цель",
+    Title = "Выбрать жертву",
     Values = {},
-    Multi = false,
-    Default = 1,
+    Callback = function(Value) SelectedPlayer = game.Players:FindFirstChild(Value) end
 })
 
--- Обновление списка игроков
 task.spawn(function()
     while true do
-        local pNames = {}
+        local names = {}
         for _, p in pairs(game.Players:GetPlayers()) do
-            if p ~= game.Players.LocalPlayer then table.insert(pNames, p.Name) end
+            if p ~= game.Players.LocalPlayer then table.insert(names, p.Name) end
         end
-        PlayerDropdown:SetValues(pNames)
-        task.wait(5)
+        PlayerDropdown:SetValues(names)
+        task.wait(3)
     end
 end)
 
 Tabs.Combat:AddButton({
-    Title = "ТП к цели (Убить)",
+    Title = "Fling (Выкинуть игрока)",
     Callback = function()
-        local target = game.Players:FindFirstChild(Options.PlayerSelect.Value)
-        if target and target.Character then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+        if SelectedPlayer then
+            FlingPlayer(SelectedPlayer)
+        else
+            Fluent:Notify({Title = "Ошибка", Content = "Сначала выбери игрока!"})
         end
     end
 })
 
-Tabs.Combat:AddButton({
-    Title = "Выстрел в Убийцу (Шериф)",
-    Callback = function()
-        local murderer = nil
-        for _, p in pairs(game.Players:GetPlayers()) do
-            if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
-                murderer = p
-                break
-            end
-        end
-        
-        if murderer then
-            local args = {
-                [1] = 1,
-                [2] = murderer.Character.HumanoidRootPart.Position,
-                [3] = "Main"
-            }
-            game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", unpack(args))
-        end
-    end
-})
+--- --- --- ВКЛАДКА: ВИЗУАЛЫ (SCP ESP) --- --- ---
 
---- --- --- ВКЛАДКА: ВИЗУАЛЫ (ESP) --- --- ---
-
-local function CreateESP()
+local function ApplyESP()
     for _, p in pairs(game.Players:GetPlayers()) do
         if p ~= game.Players.LocalPlayer and p.Character then
             local char = p.Character
-            local highlight = char:FindFirstChild("AlphaESP") or Instance.new("Highlight", char)
-            highlight.Name = "AlphaESP"
-            highlight.Enabled = ESPEnabled
-            highlight.FillOpacity = 0.5
+            local high = char:FindFirstChild("PremiumESP") or Instance.new("Highlight", char)
+            high.Name = "PremiumESP"
+            high.Enabled = ESPEnabled
+            high.FillOpacity = 0.4
             
-            -- Определение роли
-            local isMurderer = p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
-            local isSheriff = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver")
+            local isM = p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
+            local isS = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun") or p.Backpack:FindFirstChild("Revolver") or char:FindFirstChild("Revolver")
             
-            if isMurderer then
-                highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Красный
-            elseif isSheriff then
-                highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Синий
+            if isM then
+                high.FillColor = Color3.fromRGB(255, 0, 0) -- Убийца КРАСНЫЙ
+                high.OutlineColor = Color3.fromRGB(255, 255, 255)
+            elseif isS then
+                high.FillColor = Color3.fromRGB(0, 0, 255) -- Шериф СИНИЙ
+                high.OutlineColor = Color3.fromRGB(255, 255, 255)
             else
-                highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый
+                high.FillColor = Color3.fromRGB(0, 255, 0) -- Невинный ЗЕЛЕНЫЙ
+                high.OutlineColor = Color3.fromRGB(0, 0, 0)
             end
         end
     end
 end
 
 Tabs.Visuals:AddToggle("ESPToggle", {
-    Title = "Включить ESP Ролей",
+    Title = "Включить SCP ESP (Все роли)",
     Default = false,
     Callback = function(Value)
         ESPEnabled = Value
-        if not Value then
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p.Character and p.Character:FindFirstChild("AlphaESP") then
-                    p.Character.AlphaESP:Destroy()
-                end
-            end
-        end
     end
 })
 
 task.spawn(function()
     while true do
-        if ESPEnabled then CreateESP() end
-        task.wait(1)
+        if ESPEnabled then ApplyESP() end
+        task.wait(0.5)
     end
 end)
 
-Fluent:Notify({ Title = "Система запущена", Content = "Скрипт AlphaControls готов к работе!", Duration = 5 })
+--- --- --- ВКЛАДКА: НАСТРОЙКИ --- --- ---
+
+Tabs.Misc:AddButton({
+    Title = "Бесконечный прыжок",
+    Callback = function()
+        game:GetService("UserInputService").JumpRequest:Connect(function()
+            game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+        end)
+    end
+})
+
+Fluent:Notify({ Title = "DevExpress VCL", Content = "Скрипт успешно активирован!", Duration = 5 })
