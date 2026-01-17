@@ -1,92 +1,131 @@
---[[
-    InbiScript Ultimate MM2 Edition
-    Version: 16.0.4 (Large Build)
-    Author: sasapanov011
-]]
-
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🔥 InbiScript | MM2 ULTIMATE GOD MODE 🔥",
-   LoadingTitle = "InbiScript System Booting...",
-   LoadingSubtitle = "Preparing 1000+ lines of code...",
+   Name = "InbiScript | MM2 ULTIMATE GOD",
+   LoadingTitle = "Загрузка InbiScript V15...",
+   LoadingSubtitle = "by sasapanov011",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false 
 })
 
--- СЕРВИСЫ
 local LP = game.Players.LocalPlayer
 local RS = game:GetService("RunService")
 local TS = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
-local Debris = game:GetService("Debris")
-local Lighting = game:GetService("Lighting")
 
--- ПЕРЕМЕННЫЕ
-_G.InbiFarming = false
-_G.InbiSpeed = 50
-_G.InbiESP = false
-_G.InbiAF = true
-_G.InbiAura = false
-
--- ГУИ КНОПКИ
+-- ЭКРАННЫЕ КНОПКИ
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local function CreateMainBtn(text, pos, color, func)
-    local b = Instance.new("TextButton", ScreenGui)
-    b.Size = UDim2.fromOffset(100, 45)
-    b.Position = pos
-    b.BackgroundColor3 = color
-    b.Text = text
-    b.TextColor3 = Color3.new(1,1,1)
-    b.Visible = false
-    b.Draggable = true
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
-    b.MouseButton1Click:Connect(func)
-    return b
+local function CreateMobileBtn(name, pos, color, callback)
+    local Btn = Instance.new("TextButton", ScreenGui)
+    Btn.Size = UDim2.fromOffset(90, 40)
+    Btn.Position = pos
+    Btn.BackgroundColor3 = color
+    Btn.Text = name
+    Btn.TextColor3 = Color3.new(1,1,1)
+    Btn.Visible = false
+    Btn.Draggable = true 
+    Instance.new("UICorner", Btn)
+    Btn.MouseButton1Click:Connect(callback)
+    return Btn
 end
 
-local BtnShot = CreateMainBtn("SHOT MURDER", UDim2.new(0.1, 0, 0.5, 0), Color3.fromRGB(0, 150, 255), function()
+local ScreenShot = CreateMobileBtn("SHOT M", UDim2.new(0.5, -100, 0.85, 0), Color3.fromRGB(0, 100, 255), function()
     local m = nil
-    for _,p in pairs(game.Players:GetPlayers()) do if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then m = p break end end
-    local g = LP.Backpack:FindFirstChild("Gun") or LP.Character:FindFirstChild("Gun")
-    if m and g then LP.Character.Humanoid:EquipTool(g); game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", 1, m.Character.HumanoidRootPart.Position, "Main") end
-end)
-
--- ВКЛАДКИ
-local TabMain = Window:CreateTab("ГЛАВНАЯ", 4483362458)
-local TabCombat = Window:CreateTab("БОЙ / АИМ", 4483362458)
-local TabFling = Window:CreateTab("МЯСОРУБКА", 4483362458)
-local TabFarm = Window:CreateTab("АВТОФАРМ", 4483362458)
-local TabTP = Window:CreateTab("ТЕЛЕПОРТЫ", 4483362458)
-local TabVisuals = Window:CreateTab("ВИЗУАЛЫ", 4483362458)
-local TabWorld = Window:CreateTab("МИР / КАРТА", 4483362458)
-local TabTroll = Window:CreateTab("ТРОЛЛИНГ", 4483362458)
-local TabMisc = Window:CreateTab("РАЗНОЕ", 4483362458)
-
---- --- --- БОЙ & АИМ --- --- ---
-TabCombat:CreateSection("Ультра Киллаура")
-TabCombat:CreateToggle({Name = "Включить Kill Aura", CurrentValue = false, Callback = function(v) _G.InbiAura = v end})
-task.spawn(function()
-    while task.wait(0.1) do
-        if _G.InbiAura then
-            local k = LP.Character:FindFirstChild("Knife") or LP.Backpack:FindFirstChild("Knife")
-            if k then
-                for _,p in pairs(game.Players:GetPlayers()) do
-                    if p ~= LP and p.Character and (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude < 18 then
-                        LP.Character.Humanoid:EquipTool(k); k:Activate()
-                    end
-                end
-            end
-        end
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then m = p break end
+    end
+    if m and (LP.Backpack:FindFirstChild("Gun") or LP.Character:FindFirstChild("Gun")) then
+        local gun = LP.Backpack:FindFirstChild("Gun") or LP.Character:FindFirstChild("Gun")
+        LP.Character.Humanoid:EquipTool(gun)
+        game:GetService("ReplicatedStorage").MainEvent:FireServer("ShootGun", 1, m.Character.HumanoidRootPart.Position, "Main")
     end
 end)
 
-TabCombat:CreateSection("Прицел")
-local CamL = false
-TabCombat:CreateToggle({Name = "Lock On Murderer (ShiftLock)", CurrentValue = false, Callback = function(v) CamL = v; LP.DevEnableMouseLock = v end})
+-- ВКЛАДКИ
+local TabCombat = Window:CreateTab("Бой & Аим", 4483362458)
+local TabFling = Window:CreateTab("МЯСОРУБКА (Fling)", 4483362458)
+local TabFarm = Window:CreateTab("Автофарм", 4483362458)
+local TabTP = Window:CreateTab("Телепорты", 4483362458)
+local TabVisuals = Window:CreateTab("Визуалы/ESP", 4483362458)
+local TabMisc = Window:CreateTab("Разное (МНОГО)", 4483362458)
+
+--- --- --- УЛЬТРА FLING (МЯСОРУБКА) --- --- ---
+local function PowerFling(Target)
+    if Target and Target.Character and Target.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LP.Character.HumanoidRootPart
+        local oldPos = hrp.CFrame
+        local s = tick()
+        
+        Rayfield:Notify({Title = "InbiScript", Content = "Уничтожаем: "..Target.Name})
+        
+        while tick() - s < 4 do
+            RS.Heartbeat:Wait()
+            hrp.CanCollide = false
+            hrp.CFrame = Target.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(tick()*5000), 0)
+            hrp.Velocity = Vector3.new(500000, 500000, 500000)
+            hrp.RotVelocity = Vector3.new(0, 500000, 0)
+        end
+        
+        hrp.Velocity = Vector3.new(0,0,0)
+        hrp.RotVelocity = Vector3.new(0,0,0)
+        hrp.CFrame = oldPos
+    end
+end
+
+TabFling:CreateButton({Name = "🌪 УБИТЬ ВСЕХ (FLING ALL)", Callback = function()
+    for _, p in pairs(game.Players:GetPlayers()) do if p ~= LP then PowerFling(p) end end
+end})
+
+TabFling:CreateButton({Name = "🔪 FLING MURDERER", Callback = function()
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife") then PowerFling(p) end
+    end
+end})
+
+local TargetPlayer = ""
+TabFling:CreateDropdown({
+    Name = "Выбрать жертву",
+    Options = {"Загрузка..."},
+    Callback = function(v) TargetPlayer = v[1] end
+})
+
+TabFling:CreateButton({Name = "🚀 ЗАПУСТИТЬ В КОСМОС", Callback = function()
+    PowerFling(game.Players:FindFirstChild(TargetPlayer))
+end})
+
+--- --- --- ТЕЛЕПОРТЫ --- --- ---
+TabTP:CreateButton({Name = "Лобби", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end})
+TabTP:CreateButton({Name = "Центр карты", Callback = function() 
+    local m = workspace:FindFirstChild("Map") or workspace:FindFirstChild("ActiveMap")
+    if m then LP.Character.HumanoidRootPart.CFrame = m:FindFirstChildOfClass("Part", true).CFrame end
+end})
+TabTP:CreateButton({Name = "ТП к Шерифу", Callback = function()
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun") then
+            LP.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+        end
+    end
+end})
+
+--- --- --- РАЗНОЕ (МНОГО ФУНКЦИЙ) --- --- ---
+TabMisc:CreateToggle({Name = "Бесконечный прыжок", CurrentValue = false, Callback = function(v) _G.InfJump = v end})
+game:GetService("UserInputService").JumpRequest:Connect(function() if _G.InfJump then LP.Character.Humanoid:ChangeState(3) end end)
+
+TabMisc:CreateButton({Name = "Full Bright (Свет)", Callback = function() game.Lighting.Brightness = 2; game.Lighting.ClockTime = 14; game.Lighting.OutdoorAmbient = Color3.new(1,1,1) end})
+TabMisc:CreateButton({Name = "Убрать двери (Map)", Callback = function() for _,v in pairs(workspace:GetDescendants()) do if v.Name == "Door" or v.Name == "Glass" then v:Destroy() end end end})
+TabMisc:CreateSlider({Name = "WalkSpeed (Бег)", Range = {16, 250}, Increment = 1, CurrentValue = 16, Callback = function(v) LP.Character.Humanoid.WalkSpeed = v end})
+TabMisc:CreateSlider({Name = "JumpPower (Прыжок)", Range = {50, 300}, Increment = 1, CurrentValue = 50, Callback = function(v) LP.Character.Humanoid.JumpPower = v end})
+
+TabMisc:CreateSection("Визуал")
+TabMisc:CreateButton({Name = "💰 Fake 10M Coins", Callback = function() LP.PlayerGui.MainGui.Game.Coins.Text = "10,000,000" end})
+TabMisc:CreateButton({Name = "🎁 Open All Boxes (Fake)", Callback = function() Rayfield:Notify({Title="InbiScript", Content="Все скины разблокированы (Visual)!"}) end})
+
+--- --- --- БОЙ & АИМ --- --- ---
+local M_Lock = false
+TabCombat:CreateToggle({Name = "Shift Lock на Убийцу", CurrentValue = false, Callback = function(v) M_Lock = v; LP.DevEnableMouseLock = v end})
 RS.RenderStepped:Connect(function()
-    if CamL then
-        for _,p in pairs(game.Players:GetPlayers()) do
+    if M_Lock then
+        for _, p in pairs(game.Players:GetPlayers()) do
             if p.Character and (p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")) then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, p.Character.HumanoidRootPart.Position)
             end
@@ -94,69 +133,25 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
---- --- --- МЯСОРУБКА (FLING) --- --- ---
-local function InbiFling(T)
-    if T and T.Character then
-        local hrp = LP.Character.HumanoidRootPart
-        local old = hrp.CFrame
-        Rayfield:Notify({Title = "InbiScript", Content = "Уничтожение "..T.Name, Duration = 2})
-        local st = tick()
-        while tick() - st < 3.8 do
-            RS.Heartbeat:Wait()
-            hrp.CanCollide = false
-            hrp.CFrame = T.Character.HumanoidRootPart.CFrame * CFrame.Angles(math.random(0,360), math.random(0,360), math.random(0,360))
-            hrp.Velocity = Vector3.new(999999, 999999, 999999)
-            hrp.RotVelocity = Vector3.new(999999, 999999, 999999)
-        end
-        hrp.Velocity = Vector3.new(0,0,0); hrp.RotVelocity = Vector3.new(0,0,0); hrp.CFrame = old
-    end
-end
+TabCombat:CreateToggle({Name = "SHOT на экране", CurrentValue = false, Callback = function(v) ScreenShot.Visible = v end})
 
-TabFling:CreateButton({Name = "🌪 FLING ALL PLAYERS", Callback = function() for _,p in pairs(game.Players:GetPlayers()) do if p ~= LP then InbiFling(p) end end end})
-TabFling:CreateButton({Name = "🔪 FLING MURDERER", Callback = function() for _,p in pairs(game.Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("Knife") then InbiFling(p) end end end})
-local TargetF = ""
-TabFling:CreateDropdown({Name = "Выбрать жертву", Options = {"Загрузка..."}, Callback = function(v) TargetF = v[1] end})
-TabFling:CreateButton({Name = "🚀 LAUNCH TARGET", Callback = function() InbiFling(game.Players:FindFirstChild(TargetF)) end})
-
---- --- --- ТЕЛЕПОРТЫ (МНОГО) --- --- ---
-TabTP:CreateSection("Места")
-TabTP:CreateButton({Name = "Лобби", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-108, 140, 10) end})
-TabTP:CreateButton({Name = "Секретная комната", Callback = function() LP.Character.HumanoidRootPart.CFrame = CFrame.new(-120, 150, 50) end})
-TabTP:CreateButton({Name = "Пост Шерифа", Callback = function() for _,p in pairs(game.Players:GetPlayers()) do if p.Backpack:FindFirstChild("Gun") then LP.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame end end end})
-
---- --- --- МИР / КАРТА --- --- ---
-TabWorld:CreateButton({Name = "X-Ray (Прозрачность)", Callback = function() for _,v in pairs(workspace:GetDescendants()) do if v:IsA("BasePart") then v.Transparency = 0.5 end end end})
-TabWorld:CreateButton({Name = "FullBright", Callback = function() Lighting.Brightness = 2; Lighting.ClockTime = 14; Lighting.GlobalShadows = false end})
-TabWorld:CreateButton({Name = "Удалить Двери/Стены", Callback = function() for _,v in pairs(workspace:GetDescendants()) do if v.Name:find("Door") or v.Name:find("Wall") then v:Destroy() end end end})
-TabWorld:CreateButton({Name = "Ночь", Callback = function() Lighting.ClockTime = 0 end})
-
---- --- --- ТРОЛЛИНГ --- --- ---
-TabTroll:CreateButton({Name = "Fake Lag Server", Callback = function() Rayfield:Notify({Title="InbiScript", Content="Сервер 'лагает' для вас"}) end})
-TabTroll:CreateToggle({Name = "Spam Chat (InbiScript)", CurrentValue = false, Callback = function(v) 
-    _G.Spam = v
-    task.spawn(function() while _G.Spam do game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("InbiScript on TOP! Get it on GitHub!", "All") task.wait(3) end end)
-end})
-
---- --- --- РАЗНОЕ --- --- ---
-TabMisc:CreateSlider({Name = "WalkSpeed", Range = {16, 500}, Increment = 5, CurrentValue = 16, Callback = function(v) LP.Character.Humanoid.WalkSpeed = v end})
-TabMisc:CreateSlider({Name = "JumpPower", Range = {50, 500}, Increment = 5, CurrentValue = 50, Callback = function(v) LP.Character.Humanoid.JumpPower = v end})
-TabMisc:CreateButton({Name = "Бесконечные прыжки", Callback = function() _G.IJ = true; game:GetService("UserInputService").JumpRequest:Connect(function() if _G.IJ then LP.Character.Humanoid:ChangeState(3) end end) end})
-TabMisc:CreateButton({Name = "Rejoin Server", Callback = function() game:GetService("TeleportService"):Teleport(game.PlaceId, LP) end})
-
---- --- --- АВТОФАРМ --- --- ---
-TabFarm:CreateSlider({Name = "Скорость полета", Range = {10, 300}, Increment = 10, CurrentValue = 50, Callback = function(v) _G.InbiSpeed = v end})
-TabFarm:CreateToggle({Name = "Auto-Farm Coins", CurrentValue = false, Callback = function(v) 
-    _G.InbiFarming = v
+--- --- --- АВТОФАРМ & ESP --- --- ---
+_G.FS = 40
+TabFarm:CreateSlider({Name = "Скорость фарма", Range = {10, 300}, Increment = 10, CurrentValue = 40, Callback = function(v) _G.FS = v end})
+TabFarm:CreateToggle({Name = "Auto-Farm Coins", CurrentValue = false, Callback = function(v)
+    _G.Farm = v
     task.spawn(function()
-        while _G.InbiFarming do
+        while _G.Farm do
             local c = workspace:FindFirstChild("CoinContainer", true)
             if c then
-                for _,coin in pairs(c:GetChildren()) do
-                    if not _G.InbiFarming then break end
-                    LP.Character.Humanoid:ChangeState(11)
-                    local d = (LP.Character.HumanoidRootPart.Position - coin.Position).Magnitude / _G.InbiSpeed
-                    TS:Create(LP.Character.HumanoidRootPart, TweenInfo.new(d, Enum.EasingStyle.Linear), {CFrame = coin.CFrame}):Play()
-                    task.wait(d + 0.1)
+                for _, coin in pairs(c:GetChildren()) do
+                    if not _G.Farm then break end
+                    if coin:IsA("BasePart") then
+                        LP.Character.Humanoid:ChangeState(11)
+                        local d = (LP.Character.HumanoidRootPart.Position - coin.Position).Magnitude / _G.FS
+                        TS:Create(LP.Character.HumanoidRootPart, TweenInfo.new(d, Enum.EasingStyle.Linear), {CFrame = coin.CFrame}):Play()
+                        task.wait(d + 0.1)
+                    end
                 end
             end
             task.wait(0.5)
@@ -164,13 +159,21 @@ TabFarm:CreateToggle({Name = "Auto-Farm Coins", CurrentValue = false, Callback =
     end)
 end})
 
---- --- --- ОБНОВЛЕНИЕ СПИСКА ИГРОКОВ --- --- ---
+TabVisuals:CreateToggle({Name = "ESP", CurrentValue = false, Callback = function(v) _G.ESP = v end})
 task.spawn(function()
-    while task.wait(5) do
-        local pList = {}
-        for _,p in pairs(game.Players:GetPlayers()) do table.insert(pList, p.Name) end
-        -- Обновление всех дропдаунов (упрощенно)
+    while task.wait(1) do
+        if _G.ESP then
+            for _,p in pairs(game.Players:GetPlayers()) do
+                if p ~= LP and p.Character then
+                    local h = p.Character:FindFirstChild("InbiH") or Instance.new("Highlight", p.Character)
+                    h.Name = "InbiH"
+                    local isM = p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")
+                    local isS = p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun")
+                    h.FillColor = isM and Color3.new(1,0,0) or isS and Color3.new(0,0,1) or Color3.new(0,1,0)
+                end
+            end6
+        end
     end
 end)
 
-Rayfield:Notify({Title = "InbiScript Loaded!", Content = "1000+ Functions Active.", Duration = 5})
+Rayfield:Notify({Title = "InbiScript V15", Content = "Скрипт загружен! Удачи в игре.", Duration = 5})
