@@ -1,9 +1,11 @@
--- TMS VCL UI Pack Style Implementation
-local TMS = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/main.lua"))()
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-local Window = TMS:CreateWindow({
-    Title = "TMS VCL UI Pack | MM2",
-    SubTitle = "v2.0 Professional",
+-- КОНФИГУРАЦИЯ КЛЮЧА
+local CorrectKey = "InbKey-2014nivembbdfv34553jdf"
+
+local Window = Fluent:CreateWindow({
+    Title = "AlphaControls | MM2 Private",
+    SubTitle = "Key System Active",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -11,71 +13,81 @@ local Window = TMS:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "Автофарм", Icon = "settings" }),
-    Combat = Window:AddTab({ Title = "Флинг/Бой", Icon = "swords" }),
+    Key = Window:AddTab({ Title = "Ключ", Icon = "key" }),
+    Main = Window:AddTab({ Title = "Автофарм", Icon = "home" }),
+    Combat = Window:AddTab({ Title = "Fling / Бой", Icon = "swords" }),
     Visuals = Window:AddTab({ Title = "SCP ESP", Icon = "eye" }),
     Teleport = Window:AddTab({ Title = "Телепорты", Icon = "map" })
 }
 
+local Options = Fluent.Options
 local LP = game.Players.LocalPlayer
-local RS = game:GetService("RunService")
 
--- Переменные конфигурации
-local Config = {
-    Flinging = false,
-    AntiFling = true,
-    ShowInnocents = true,
-    ShowSheriff = true,
-    ShowMurderer = true
-}
+--- --- --- СИСТЕМА КЛЮЧА --- --- ---
 
---- --- --- ЖЕСТКИЙ FLING (FIXED) --- --- ---
+local KeyInput = Tabs.Key:AddInput("KeyInput", {
+    Title = "Введите ключ",
+    Default = "",
+    Placeholder = "Вставьте ключ сюда...",
+    Callback = function(Value) end
+})
 
-local function SecureFling(Target)
+Tabs.Key:AddButton({
+    Title = "Проверить ключ",
+    Callback = function()
+        if Options.KeyInput.Value == CorrectKey then
+            Fluent:Notify({Title = "Доступ разрешен", Content = "Добро пожаловать в AlphaControls!", Duration = 5})
+            -- Здесь можно разблокировать остальные вкладки, если нужно, 
+            -- но для удобства они открыты, просто уведомляем об успехе.
+        else
+            Fluent:Notify({Title = "Ошибка", Content = "Неверный ключ!", Duration = 5})
+        end
+    end
+})
+
+--- --- --- ЛОГИКА FLING (УЛУЧШЕННЫЙ) --- --- ---
+
+local function BetterFling(Target)
+    if Options.KeyInput.Value ~= CorrectKey then return Fluent:Notify({Title="Ошибка", Content="Введите ключ!"}) end
     if not Target or not Target.Character then return end
+    
     local hrp = LP.Character:FindFirstChild("HumanoidRootPart")
     local trp = Target.Character:FindFirstChild("HumanoidRootPart")
     
     if hrp and trp then
         local oldPos = hrp.CFrame
-        Config.Flinging = true
-        
-        -- Чтобы не улететь самому, отключаем столкновения
-        for _, v in pairs(LP.Character:GetDescendants()) do
-            if v:IsA("BasePart") then v.CanCollide = false end
-        end
-
         local start = tick()
-        while tick() - start < 3 and trp.Parent do
-            RS.Heartbeat:Wait()
-            hrp.CFrame = trp.CFrame * CFrame.new(0, 0, 0)
-            -- Вращение для выбивания (Spin)
-            hrp.Velocity = Vector3.new(0, 5000, 0) 
-            hrp.RotVelocity = Vector3.new(0, 10000, 0)
-        end
         
-        hrp.Velocity = Vector3.new(0,0,0)
-        hrp.RotVelocity = Vector3.new(0,0,0)
-        hrp.CFrame = oldPos
-        Config.Flinging = false
+        task.spawn(function()
+            while tick() - start < 4 and trp.Parent do
+                game:GetService("RunService").Heartbeat:Wait()
+                hrp.CanCollide = false
+                hrp.CFrame = trp.CFrame * CFrame.new(math.random(-1,1), 0, math.random(-1,1))
+                hrp.Velocity = Vector3.new(5000, 5000, 5000)
+                hrp.RotVelocity = Vector3.new(0, 15000, 0)
+            end
+            hrp.Velocity = Vector3.new(0,0,0)
+            hrp.RotVelocity = Vector3.new(0,0,0)
+            hrp.CFrame = oldPos
+        end)
     end
 end
 
 --- --- --- ВКЛАДКА: АВТОФАРМ --- --- ---
 
-Tabs.Main:AddToggle("FarmUnder", {Title = "Скрытый Автофарм (Under)", Default = false})
+Tabs.Main:AddToggle("FarmToggle", {Title = "Включить Автофарм (Under)", Default = false})
 
 task.spawn(function()
     while task.wait(0.1) do
-        if TMS.Options.FarmUnder.Value then
+        if Options.FarmToggle and Options.FarmToggle.Value and Options.KeyInput.Value == CorrectKey then
             local coins = workspace:FindFirstChild("CoinContainer", true)
             if coins then
                 for _, coin in pairs(coins:GetChildren()) do
-                    if not TMS.Options.FarmUnder.Value then break end
+                    if not Options.FarmToggle.Value then break end
                     if coin:IsA("BasePart") and LP.Character:FindFirstChild("HumanoidRootPart") then
                         LP.Character.Humanoid:ChangeState(11)
                         LP.Character.HumanoidRootPart.CFrame = coin.CFrame * CFrame.new(0, -7, 0)
-                        task.wait(1.2)
+                        task.wait(1.5)
                     end
                 end
             end
@@ -83,79 +95,68 @@ task.spawn(function()
     end
 end)
 
---- --- --- ВКЛАДКА: БОЙ --- --- ---
+--- --- --- ВКЛАДКА: COMBAT --- --- ---
 
-local PlayerList = Tabs.Combat:AddDropdown("TargetList", {
+local PlayerDrop = Tabs.Combat:AddDropdown("PSelect", {
     Title = "Выбрать игрока",
     Values = {"..."},
-    Callback = function(v) _G.ToFling = game.Players:FindFirstChild(v) end
+    Callback = function(v) _G.TargetP = game.Players:FindFirstChild(v) end
 })
 
 task.spawn(function()
-    while task.wait(2) do
+    while task.wait(3) do
         local names = {}
         for _, p in pairs(game.Players:GetPlayers()) do table.insert(names, p.Name) end
-        PlayerList:SetValues(names)
+        PlayerDrop:SetValues(names)
     end
 end)
 
-Tabs.Combat:AddButton({
-    Title = "Выбросить игрока (FLING)",
-    Callback = function() SecureFling(_G.ToFling) end
-})
+Tabs.Combat:AddButton({Title = "ВЫКИНУТЬ ЦЕЛЬ (Fling)", Callback = function() BetterFling(_G.TargetP) end})
 
 Tabs.Combat:AddButton({
-    Title = "Выбросить ШЕРИФА",
+    Title = "ВЫКИНУТЬ ШЕРИФА",
     Callback = function()
         for _, p in pairs(game.Players:GetPlayers()) do
             if p.Backpack:FindFirstChild("Gun") or (p.Character and p.Character:FindFirstChild("Gun")) then
-                SecureFling(p)
+                BetterFling(p)
             end
         end
     end
 })
 
-Tabs.Combat:AddToggle("AntiFling", {Title = "Анти-Флинг (Защита)", Default = true})
+--- --- --- ВКЛАДКА: VISUALS (ПОЛНЫЙ ESP) --- --- ---
 
---- --- --- ВКЛАДКА: ESP (УПРАВЛЯЕМЫЙ) --- --- ---
+Tabs.Visuals:AddToggle("ShowM", {Title = "Подсветка Убийцы (Красный)", Default = false})
+Tabs.Visuals:AddToggle("ShowS", {Title = "Подсветка Шерифа (Синий)", Default = false})
+Tabs.Visuals:AddToggle("ShowI", {Title = "Подсветка Мирных (Зеленый)", Default = false})
 
-Tabs.Visuals:AddToggle("EspGlobal", {Title = "Включить ESP", Default = false})
-Tabs.Visuals:AddToggle("ShowM", {Title = "Показывать Убийцу", Default = true, Callback = function(v) Config.ShowMurderer = v end})
-Tabs.Visuals:AddToggle("ShowS", {Title = "Показывать Шерифа", Default = true, Callback = function(v) Config.ShowSheriff = v end})
-Tabs.Visuals:AddToggle("ShowI", {Title = "Показывать Мирных", Default = true, Callback = function(v) Config.ShowInnocents = v end})
-
-local function ApplyESP()
-    for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local char = p.Character
-            local h = char:FindFirstChild("TMS_VCL_ESP") or Instance.new("Highlight", char)
-            h.Name = "TMS_VCL_ESP"
-            
-            local isM = p.Backpack:FindFirstChild("Knife") or char:FindFirstChild("Knife")
-            local isS = p.Backpack:FindFirstChild("Gun") or char:FindFirstChild("Gun")
-            
-            h.Enabled = false
-            if TMS.Options.EspGlobal.Value then
-                if isM and Config.ShowMurderer then
+task.spawn(function()
+    while task.wait(1) do
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local h = p.Character:FindFirstChild("AlphaESP") or Instance.new("Highlight", p.Character)
+                h.Name = "AlphaESP"
+                h.Enabled = false
+                
+                local isM = p.Backpack:FindFirstChild("Knife") or p.Character:FindFirstChild("Knife")
+                local isS = p.Backpack:FindFirstChild("Gun") or p.Character:FindFirstChild("Gun")
+                
+                if isM and Options.ShowM.Value then
                     h.FillColor = Color3.fromRGB(255, 0, 0)
                     h.Enabled = true
-                elseif isS and Config.ShowSheriff then
+                elseif isS and Options.ShowS.Value then
                     h.FillColor = Color3.fromRGB(0, 0, 255)
                     h.Enabled = true
-                elseif not isM and not isS and Config.ShowInnocents then
+                elseif not isM and not isS and Options.ShowI.Value then
                     h.FillColor = Color3.fromRGB(0, 255, 0)
                     h.Enabled = true
                 end
             end
         end
     end
-end
-
-task.spawn(function()
-    while task.wait(0.5) do ApplyESP() end
 end)
 
---- --- --- ВКЛАДКА: ТЕЛЕПОРТЫ (МГНОВЕННЫЕ) --- --- ---
+--- --- --- ВКЛАДКА: ТЕЛЕПОРТЫ --- --- ---
 
 Tabs.Teleport:AddButton({
     Title = "Мгновенно в Лобби",
@@ -164,15 +165,4 @@ Tabs.Teleport:AddButton({
     end
 })
 
-Tabs.Teleport:AddButton({
-    Title = "Мгновенно на Карту",
-    Callback = function()
-        local map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("ActiveMap")
-        if map then
-            local sp = map:FindFirstChild("Spawn", true) or map:FindFirstChildOfClass("Part")
-            LP.Character.HumanoidRootPart.CFrame = sp.CFrame
-        end
-    end
-})
-
-TMS:Notify({Title = "TMS VCL UI Pack", Content = "Скрипт готов к работе!", Duration = 3})
+Fluent:Notify({Title = "AlphaControls", Content = "Скрипт загружен. Введите ключ!", Duration = 5})
